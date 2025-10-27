@@ -1,7 +1,7 @@
 version: 0.2.1
 baudrate: 3000000
-#port: /dev/ttyUSB0 # linux
-port: /dev/tty.usbserial-FT9MISJT # mac
+port: /dev/ttyUSB0 # linux
+#port: /dev/tty.usbserial-FT9MISJT # mac
 max_current: 400
 
 type: right
@@ -17,7 +17,7 @@ joint_to_motor_map:
   thumb_mcp: -4
   thumb_abd: -3
   thumb_pip: -1
-  thumb_dip: -2
+  thumb_dip: 2
   index_abd: 14
   index_mcp: -15
   index_pip: -16
@@ -65,7 +65,7 @@ neutral_position:
   ring_abd: -20
   ring_mcp: -1
   ring_pip: 0
-  pinky_abd: -55
+  pinky_abd: -36
   pinky_mcp: 1
   pinky_pip: 0
   wrist: 0
