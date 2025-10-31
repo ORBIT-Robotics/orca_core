@@ -18,10 +18,12 @@ def main():
     hand.enable_torque()
 
     joint_dict = {
-        "index_mcp": 90,
-        "middle_pip": 30,
-        "pinky_abd": 20,
+        "index_pip": -20
     }
+        #     "thumb_mcp": [-50, 50],
+        # "thumb_abd": [-20, 42],
+        # "thumb_pip": [-12, 108],
+        # "thumb_dip": [-20, 112]
 
     hand.set_joint_pos(joint_dict, num_steps=25, step_size=0.001)
 
