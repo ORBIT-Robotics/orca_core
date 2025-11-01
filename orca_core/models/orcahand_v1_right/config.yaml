@@ -52,8 +52,8 @@ joint_roms:
   wrist: [-50, 30]
 
 neutral_position:
-  thumb_mcp: -13
-  thumb_abd: 43
+  thumb_mcp: 0
+  thumb_abd: 0
   thumb_pip: 33
   thumb_dip: 19
   index_abd: 25
