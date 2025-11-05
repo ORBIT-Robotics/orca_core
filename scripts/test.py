@@ -18,9 +18,21 @@ def main():
     hand.enable_torque()
 
     joint_dict = {
-        "index_mcp": 90,
-        "middle_pip": 30,
-        "pinky_abd": 20,
+        # Middle finger: middle extended, others curled inward
+        "thumb_mcp": 30,
+        "thumb_abd": 22,
+        "thumb_dip": 40,
+        "thumb_pip": 50,
+        "index_abd": 0,
+        "index_mcp": 75,
+        "index_pip": 85,
+        "middle_abd": -5,
+        "middle_mcp": -15,
+        "middle_pip": -12,
+        "ring_mcp": 85,
+        "ring_pip": 95,
+        "pinky_mcp": 90,
+        "pinky_pip": 100,
     }
 
     hand.set_joint_pos(joint_dict, num_steps=25, step_size=0.001)
