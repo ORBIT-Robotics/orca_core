@@ -34,6 +34,10 @@ def main():
         "pinky_mcp": 90,
         "pinky_pip": 100,
     }
+        #     "thumb_mcp": [-50, 50],
+        # "thumb_abd": [-20, 42],
+        # "thumb_pip": [-12, 108],
+        # "thumb_dip": [-20, 112]
 
     hand.set_joint_pos(joint_dict, num_steps=25, step_size=0.001)
 
