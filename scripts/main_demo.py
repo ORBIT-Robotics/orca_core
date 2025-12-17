@@ -66,6 +66,10 @@ def main(): # Added main function
     thumb_positions = []
 
     for t in time_steps:
+        wrist_center = (joint_roms['wrist'][0] + joint_roms['wrist'][1]) / 2
+        wrist_range = (joint_roms['wrist'][1] - joint_roms['wrist'][0]) / 2
+        wrist_pos = wrist_center + amplitude * wrist_range * np.sin(2 * np.pi * t / period)
+
         # Compute positions for fingers
         for i, finger in enumerate(fingers):
             phase_shift = i * phase_shift_factor  # Apply the phase shift factor
@@ -89,7 +93,7 @@ def main(): # Added main function
             + thumb_amplitude * (joint_roms['thumb_dip'][1] - joint_roms['thumb_dip'][0]) / 2
             * np.sin(2 * np.pi * t / period),
             'thumb_abd': 35,  # Constant position
-            'wrist': -20,  # Constant position
+            'wrist': wrist_pos,  # Oscillating wrist
             'pinky_abd': -20,  # Constant abduction
             'ring_abd': -10,   # Constant abduction
             'index_abd': 25, # Constant abduction
