@@ -58,6 +58,7 @@ def main(): # Added main function
     step_time = 0.005  # Time between updates (seconds)
     amplitude = 0.7  # Fraction of the ROM to use for finger movement
     thumb_amplitude = 0.4  # Fraction of the ROM to use for thumb movement
+    wrist_amplitude = 1.0 # Use full wrist ROM to visualize max range
     phase_shift_factor = period / 20  # Phase shift between fingers (0 for no shift, period/4 for equal spacing)
 
     # Precompute the joint positions for each time step
@@ -68,7 +69,7 @@ def main(): # Added main function
     for t in time_steps:
         wrist_center = (joint_roms['wrist'][0] + joint_roms['wrist'][1]) / 2
         wrist_range = (joint_roms['wrist'][1] - joint_roms['wrist'][0]) / 2
-        wrist_pos = wrist_center + amplitude * wrist_range * np.sin(2 * np.pi * t / period)
+        wrist_pos = wrist_center + wrist_amplitude * wrist_range * np.sin(2 * np.pi * t / period)
 
         # Compute positions for fingers
         for i, finger in enumerate(fingers):

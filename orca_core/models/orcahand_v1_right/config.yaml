@@ -54,23 +54,24 @@ joint_roms:
 neutral_position:
   thumb_mcp: 0
   thumb_abd: 0
-  thumb_pip: 33
-  thumb_dip: 19
-  index_abd: 25
+  thumb_pip: 0
+  thumb_dip: 0
+  index_abd: 0
   index_mcp: 0
   index_pip: 0
-  middle_abd: -2
+  middle_abd: 0
   middle_mcp: 0
   middle_pip: 0
-  ring_abd: -20
-  ring_mcp: -1
+  ring_abd: 0
+  ring_mcp: 0
   ring_pip: 0
-  pinky_abd: -36
-  pinky_mcp: 1
+  pinky_abd: 0
+  pinky_mcp: 0
   pinky_pip: 0
-  wrist: 0
+  wrist: 0 # for some reason the wrist neutral is not zero
 
 calib_current: 350
+wrist_calib_current: 200
 calib_step_size: 0.1
 calib_step_period: 0.001
 calib_num_stable: 10  # should be period * num_stable > 1
