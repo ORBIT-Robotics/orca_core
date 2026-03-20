@@ -1,0 +1,55 @@
+version: 1
+calibrated: false
+updated_at: null
+
+hardware:
+  motor_ids:
+    yaw: null
+    upper_left: null
+    upper_right: null
+  imu_serial_number: null
+
+motor_limits:
+  yaw: [null, null]
+  upper_left: [null, null]
+  upper_right: [null, null]
+
+neutral:
+  motors:
+    yaw: null
+    upper_left: null
+    upper_right: null
+  imu_quaternion_xyzw: [0.0, 0.0, 0.0, 1.0]
+  imu_rpy_rad:
+    yaw: 0.0
+    pitch: 0.0
+    roll: 0.0
+
+gains:
+  k_y: null
+  k_p: null
+  k_r: null
+
+signs:
+  yaw_sign: 1.0
+  pitch_sign: 1.0
+  roll_sign: 1.0
+
+model:
+  jacobian_motor_to_head:
+    - [null, null, null]
+    - [null, null, null]
+    - [null, null, null]
+  fit_rmse_rad:
+    yaw: null
+    pitch: null
+    roll: null
+
+virtual_limits_rad:
+  yaw: 0.70
+  pitch: 0.55
+  roll: 0.55
+
+validation:
+  trials: []
+  summary: {}

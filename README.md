@@ -33,7 +33,7 @@ To get started with Orca Core, follow these steps:
 
     - Review the config file (e.g., `orca_core/orca_core/models/orcahand_v1_right/config.yaml`) and make sure it matches your hardware setup.
 
-4. **Run the tension and calibration scripts**:
+4. **Run the active tension and calibration scripts**:
 
     ```sh
     python scripts/tension.py orca_core/models/orcahand_v1_right
@@ -81,7 +81,6 @@ To get started with Orca Core, follow these steps:
 
 **Note:**  
 - Always ensure your `config.yaml` matches your hardware and wiring.
-- All scripts in the `scripts/` folder take the model path as their first argument.
-- For more advanced usage, see the other scripts and the API documentation.
+- Active scripts in `scripts/` are `calibrate.py`, `tension.py`, `neutral.py`, and `test.py`.
 
 ---
