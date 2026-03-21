@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from helios_core.scripts.head_config import (
+from helios_core.head_config import (
     HeadMotorIDs,
     calibration_log_dir,
     calibration_output_path,
@@ -23,7 +23,7 @@ from helios_core.scripts.head_config import (
     write_yaml,
 )
 from hardware.head_hardware import HeliosHeadHardware
-from helios_core.scripts.head_model import HeliosHeadCalibrationModel
+from helios_core.head_model import HeliosHeadCalibrationModel
 from helios_core.sensors.zedx_head_imu import ZedXHeadImu
 
 
@@ -699,3 +699,4 @@ class HeliosHeadCalibrator:
         self.capture_neutral()
         self.run_imu_probe_calibration()
         return self.save_results()
+

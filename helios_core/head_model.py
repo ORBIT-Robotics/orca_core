@@ -7,7 +7,7 @@ from typing import Dict, Optional
 
 import numpy as np
 
-from helios_core.scripts.head_config import HeadMotorIDs
+from helios_core.head_config import HeadMotorIDs
 
 
 @dataclass
@@ -165,3 +165,4 @@ class HeliosHeadCalibrationModel:
             "upper_left": tuple(self.motor_limits["upper_left"]),
             "upper_right": tuple(self.motor_limits["upper_right"]),
         }
+

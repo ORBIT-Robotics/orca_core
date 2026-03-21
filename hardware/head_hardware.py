@@ -9,7 +9,7 @@ from typing import Dict, Iterable, Optional
 
 import numpy as np
 
-from helios_core.scripts.head_config import HeadMotorIDs
+from helios_core.head_config import HeadMotorIDs
 from hardware.dynamixel_client import DynamixelClient
 
 
@@ -195,3 +195,4 @@ class HeliosHeadHardware:
         with self._lock:
             self._dxl_client.write_desired_pos(self._ordered_ids, pos)
         return pos
+

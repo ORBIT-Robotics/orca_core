@@ -1,5 +1,5 @@
 import unittest
-from orca_core.scripts.hand_runtime import OrcaHand, MockOrcaHand
+from orca_core.hand_runtime import OrcaHand, MockOrcaHand
 
 class TestOrcaCore(unittest.TestCase):
     def test_import_and_instantiation(self):
@@ -26,3 +26,4 @@ if __name__ == "__main__":
     unittest.main()
     
     
+

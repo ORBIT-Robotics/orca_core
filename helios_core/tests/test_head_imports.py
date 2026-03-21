@@ -1,9 +1,9 @@
 import unittest
 
-from helios_core.scripts.head_calibration import HeliosHeadCalibrator
-from helios_core.scripts.head_config import HeadMotorIDs
-from helios_core.scripts.head_model import HeliosHeadCalibrationModel
-from helios_core.scripts.head_runtime import HeliosHeadRuntime
+from helios_core.head_calibration import HeliosHeadCalibrator
+from helios_core.head_config import HeadMotorIDs
+from helios_core.head_model import HeliosHeadCalibrationModel
+from helios_core.head_runtime import HeliosHeadRuntime
 from hardware.head_hardware import HeliosHeadHardware
 from helios_core.sensors.zedx_head_imu import ZedXHeadImu
 
@@ -20,3 +20,5 @@ class TestHeliosImports(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+

@@ -3,7 +3,7 @@ import os
 import shutil
 import yaml
 import uuid
-from orca_core.scripts.hand_runtime import MockOrcaHand
+from orca_core.hand_runtime import MockOrcaHand
 from orca_core.utils.yaml_io import read_yaml
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -67,3 +67,4 @@ class TestOrcaHandCalibration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

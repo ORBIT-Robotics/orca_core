@@ -8,8 +8,8 @@ from typing import Optional, Dict, Any
 
 import numpy as np
 
-from helios_core.scripts.head_config import load_head_config, parse_motor_ids, read_yaml, resolve_repo_path
-from helios_core.scripts.head_model import HeliosHeadCalibrationModel
+from helios_core.head_config import load_head_config, parse_motor_ids, read_yaml, resolve_repo_path
+from helios_core.head_model import HeliosHeadCalibrationModel
 from hardware.head_hardware import HeliosHeadHardware
 
 
@@ -81,3 +81,4 @@ class HeliosHeadRuntime:
 
     def shutdown(self) -> None:
         self.hardware.disconnect()
+

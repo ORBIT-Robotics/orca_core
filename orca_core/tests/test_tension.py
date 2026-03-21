@@ -1,6 +1,6 @@
 import unittest
 import time
-from orca_core.scripts.hand_runtime import MockOrcaHand
+from orca_core.hand_runtime import MockOrcaHand
 
 class TestOrcaHandTension(unittest.TestCase):
 
@@ -57,3 +57,4 @@ class TestOrcaHandTension(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-from orca_core.scripts.hand_runtime import OrcaHand
+from orca_core.hand_runtime import OrcaHand
 
 
 def main() -> int:
@@ -33,3 +33,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

@@ -15,7 +15,7 @@ from typing import List, Dict, Optional, Union, Tuple
 import numpy as np
 import uvicorn
 
-from orca_core.scripts.hand_runtime import OrcaHand
+from orca_core.hand_runtime import OrcaHand
 
 app = FastAPI(title="OrcaHand API", version="1.0.0")
 

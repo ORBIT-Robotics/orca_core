@@ -11,8 +11,9 @@
 `orca_core` is the local ORBIT control package set for ORCA hands + HELIOS head.
 
 It now uses folder-aligned namespace packages with explicit imports:
-- ORCA hand runtime scripts: `orca_core.scripts.*`
-- HELIOS head scripts: `helios_core.scripts.*`
+- ORCA hand runtime/core modules: `orca_core.*`
+- HELIOS head runtime/core modules: `helios_core.*`
+- ORCA hand CLI wrappers: `orca_core.scripts.*`
 - Shared hardware drivers: `hardware.*`
 - HELIOS sensors: `helios_core.sensors.*`
 
@@ -29,8 +30,8 @@ Always import from the defining module. Do not import through package roots.
 Good:
 
 ```python
-from orca_core.scripts.hand_runtime import OrcaHand
-from helios_core.scripts.head_runtime import HeliosHeadRuntime
+from orca_core.hand_runtime import OrcaHand
+from helios_core.head_runtime import HeliosHeadRuntime
 from hardware.head_hardware import HeliosHeadHardware
 from helios_core.sensors.zedx_head_imu import ZedXHeadImu
 ```
@@ -61,7 +62,7 @@ Minimal runtime example:
 
 ```python
 import time
-from orca_core.scripts.hand_runtime import OrcaHand
+from orca_core.hand_runtime import OrcaHand
 
 hand = OrcaHand("models/orca_hand_right")
 ok, msg = hand.connect()
@@ -81,3 +82,5 @@ From this directory (`orca_core/`):
 ```sh
 python -m pytest -q orca_core/tests helios_core/tests
 ```
+
+
