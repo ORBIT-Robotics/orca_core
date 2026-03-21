@@ -168,15 +168,54 @@ class DynamixelClient:
                 ('Failed to open port at {} (Check that the device is powered '
                  'on and connected to your computer).').format(self.port_name))
 
-        if self.port_handler.setBaudRate(self.baudrate):
-            logging.info('Succeeded to set baudrate to %d', self.baudrate)
-        else:
-            raise OSError(
-                ('Failed to set the baudrate to {} (Ensure that the device was '
-                 'configured for this baudrate).').format(self.baudrate))
+        # Some hands are configured at 1M, others at 3M. Try configured baud
+        # first, then fall back so we can connect cleanly across hardware revs.
+        baud_candidates = []
+        for baud in (self.baudrate, 3000000, 1000000):
+            if baud not in baud_candidates:
+                baud_candidates.append(baud)
 
-        # Start with all motors enabled.
-        self.set_torque_enabled(self.motor_ids, True)
+        baud_failures = {}
+        for baud in baud_candidates:
+            if not self.port_handler.setBaudRate(baud):
+                baud_failures[baud] = list(self.motor_ids)
+                logging.warning('Failed to set baudrate to %d on %s', baud, self.port_name)
+                continue
+
+            logging.info('Succeeded to set baudrate to %d', baud)
+
+            failed_ids = self.set_torque_enabled(
+                self.motor_ids,
+                True,
+                retries=8,
+                retry_interval=0.25,
+            )
+            if not failed_ids:
+                if baud != self.baudrate:
+                    logging.warning(
+                        'Configured baudrate %d failed; connected at fallback baudrate %d.',
+                        self.baudrate,
+                        baud,
+                    )
+                    self.baudrate = baud
+                return
+
+            baud_failures[baud] = list(failed_ids)
+            logging.warning(
+                'Torque-enable failed at baudrate %d for IDs: %s',
+                baud,
+                failed_ids,
+            )
+
+        failure_summary = ", ".join(
+            f"{baud}:{ids}" for baud, ids in baud_failures.items()
+        )
+        raise OSError(
+            "Connected to serial port but could not enable torque. "
+            f"port='{self.port_name}', attempted_baudrates={baud_candidates}, "
+            f"failures=[{failure_summary}]. Check serial port mapping, motor power, "
+            "and hand-side model config."
+        )
 
     def disconnect(self):
         """Disconnects from the Dynamixel device."""
@@ -220,6 +259,7 @@ class DynamixelClient:
                 break
             time.sleep(retry_interval)
             retries -= 1
+        return remaining_ids
 
     def set_operating_mode(self, motor_ids: Sequence[int], mode_value: int):
         """
