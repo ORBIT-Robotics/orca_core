@@ -14,8 +14,15 @@ from typing import Dict, List, Union
 from collections import deque
 from threading import RLock
 import numpy as np
-from orca_core.hardware.dynamixel_client import DynamixelClient
-from orca_core.hardware.mock_dynamixel_client import MockDynamixelClient
+
+try:
+    from orca_core.hardware.dynamixel_client import DynamixelClient
+    from orca_core.hardware.mock_dynamixel_client import MockDynamixelClient
+except ModuleNotFoundError:
+    # Support local checkout layouts where hardware is exposed as top-level package.
+    from hardware.dynamixel_client import DynamixelClient
+    from hardware.mock_dynamixel_client import MockDynamixelClient
+
 from orca_core.utils.yaml_io import get_model_path, read_yaml, update_yaml
 
 class OrcaHand:
