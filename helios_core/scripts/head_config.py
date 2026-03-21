@@ -51,7 +51,34 @@ def resolve_repo_path(path_str: str | Path) -> Path:
     path = Path(path_str)
     if path.is_absolute():
         return path
-    return (_repo_root() / path).resolve()
+
+    repo_root = _repo_root()
+    local_pkg_root = Path(__file__).resolve().parents[1]
+    candidates = []
+    if path.parts and path.parts[0] == "orca_core" and len(path.parts) > 1:
+        # Support repo-root style "orca_core/..." paths even when executing from
+        # inside the standalone orca_core package checkout.
+        stripped = Path(*path.parts[1:])
+        candidates.append((repo_root / stripped).resolve())
+        candidates.append((local_pkg_root / stripped).resolve())
+        candidates.append((repo_root / path).resolve())
+        candidates.append((local_pkg_root / path).resolve())
+    else:
+        candidates.append((repo_root / path).resolve())
+        candidates.append((local_pkg_root / path).resolve())
+
+    seen = set()
+    for candidate in candidates:
+        key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        if candidate.exists():
+            return candidate
+
+    if path.parts and path.parts[0] == "orca_core" and len(path.parts) > 1:
+        return (local_pkg_root / Path(*path.parts[1:])).resolve()
+    return (local_pkg_root / path).resolve()
 
 
 def read_yaml(path: str | Path) -> Dict[str, Any]:
@@ -77,7 +104,7 @@ def utc_now_iso() -> str:
 
 
 def load_head_config(path: Optional[str] = None) -> tuple[Dict[str, Any], Path]:
-    default_path = "orca_core/orca_core/helios_head/models/helios_head_v1/config.yaml"
+    default_path = "orca_core/models/helios_head/config.yaml"
     cfg_path = resolve_repo_path(path or default_path)
     if cfg_path.is_dir():
         cfg_path = cfg_path / "config.yaml"
@@ -123,7 +150,7 @@ def calibration_output_path(config: Dict[str, Any], config_path: Path) -> Path:
     calib_cfg = config.get("calibration", {})
     out = calib_cfg.get(
         "output_path",
-        "orca_core/orca_core/helios_head/models/helios_head_v1/calibration.yaml",
+        "orca_core/models/helios_head/calibration.yaml",
     )
     return resolve_repo_path(out)
 

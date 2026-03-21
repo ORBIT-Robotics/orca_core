@@ -2,7 +2,7 @@ import unittest
 import os
 import numpy as np
 import yaml
-from orca_core.utils import update_yaml, read_yaml
+from orca_core.utils.yaml_io import update_yaml, read_yaml
 
 class TestYamlFunctions(unittest.TestCase):
 

@@ -7,7 +7,7 @@ from typing import Dict, Optional
 
 import numpy as np
 
-from .config import HeadMotorIDs
+from helios_core.scripts.head_config import HeadMotorIDs
 
 
 @dataclass

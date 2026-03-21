@@ -39,7 +39,7 @@ imu:
   sample_sleep_sec: 0.01
 
 calibration:
-  output_path: orca_core/orca_core/helios_head/models/helios_head_v1/calibration.yaml
+  output_path: orca_core/models/helios_head/calibration.yaml
   log_dir: logs/helios_head_calibration
 
   tension:

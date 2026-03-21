@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from .config import (
+from helios_core.scripts.head_config import (
     HeadMotorIDs,
     calibration_log_dir,
     calibration_output_path,
@@ -22,9 +22,9 @@ from .config import (
     utc_now_iso,
     write_yaml,
 )
-from .hardware import HeliosHeadHardware
-from .model import HeliosHeadCalibrationModel
-from .sensors.zedx_head_imu import ZedXHeadImu
+from hardware.head_hardware import HeliosHeadHardware
+from helios_core.scripts.head_model import HeliosHeadCalibrationModel
+from helios_core.sensors.zedx_head_imu import ZedXHeadImu
 
 
 @dataclass
@@ -55,7 +55,7 @@ class HeliosHeadCalibrator:
         if serial_number is None:
             raise ValueError(
                 "IMU serial number is not configured. Set imu.serial_number in "
-                "orca_core/orca_core/helios_head/models/helios_head_v1/config.yaml or "
+                "orca_core/models/helios_head/config.yaml or "
                 "zedx_head_imu_serial_number in configs/camera.yaml."
             )
 

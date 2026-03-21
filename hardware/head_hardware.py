@@ -9,7 +9,8 @@ from typing import Dict, Iterable, Optional
 
 import numpy as np
 
-from .config import HeadMotorIDs
+from helios_core.scripts.head_config import HeadMotorIDs
+from hardware.dynamixel_client import DynamixelClient
 
 
 @dataclass(frozen=True)
@@ -45,21 +46,7 @@ class HeliosHeadHardware:
         self._lock = threading.RLock()
 
     def _ensure_client_class(self):
-        try:
-            from orca_core.hardware.dynamixel_client import DynamixelClient
-
-            return DynamixelClient
-        except ImportError:
-            from pathlib import Path
-            import sys
-
-            repo_root = Path(__file__).resolve().parents[2]
-            local_orca = repo_root / "orca_core"
-            if local_orca.exists() and str(local_orca) not in sys.path:
-                sys.path.insert(0, str(local_orca))
-            from orca_core.hardware.dynamixel_client import DynamixelClient
-
-            return DynamixelClient
+        return DynamixelClient
 
     @property
     def connected(self) -> bool:

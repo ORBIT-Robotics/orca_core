@@ -14,9 +14,9 @@ from typing import Dict, List, Union
 from collections import deque
 from threading import RLock
 import numpy as np
-from .hardware.dynamixel_client import DynamixelClient
-from .hardware.mock_dynamixel_client import MockDynamixelClient
-from .utils.utils import *
+from hardware.dynamixel_client import DynamixelClient
+from hardware.mock_dynamixel_client import MockDynamixelClient
+from orca_core.utils.yaml_io import get_model_path, read_yaml, update_yaml
 
 class OrcaHand:
     """OrcaHand class is used to abtract hardware control the hand of the robot with simple high level control methods in joint space."""
@@ -904,7 +904,7 @@ def require_calibration(func):
 
 class MockOrcaHand(OrcaHand):
     """MockOrcaHand class is used to simulate the OrcaHand class for testing."""
-   
+
     def connect(self) -> tuple[bool, str]:
         """Connects to the mock Dynamixel client.
 
@@ -913,14 +913,74 @@ class MockOrcaHand(OrcaHand):
                               and a string message.
         """
         try:
-            self._dxl_client = MockDynamixelClient(self.motor_ids, self.port, self.baudrate)
+            import importlib.util
+
+            if importlib.util.find_spec("dynamixel_sdk") is None:
+                self._dxl_client = _FallbackMockDynamixelClient(self.motor_ids, self.port, self.baudrate)
+            else:
+                self._dxl_client = MockDynamixelClient(self.motor_ids, self.port, self.baudrate)
             with self._motor_lock:
                 self._dxl_client.connect()
             return True, "Mock connection successful"
         except Exception as e:
             self._dxl_client = None
             return False, f"Mock connection failed: {str(e)}"
-        
+
+    def calibrate(self, blocking: bool = True):
+        """Fast deterministic mock calibration for CI/dev environments."""
+        self.motor_limits_dict = {motor_id: [-1.0, 1.0] for motor_id in self.motor_ids}
+        self.joint_to_motor_ratios_dict = {motor_id: 1.0 for motor_id in self.motor_ids}
+        self.calibrated = True
+        update_yaml(self.calib_path, "motor_limits", self.motor_limits_dict)
+        update_yaml(self.calib_path, "joint_to_motor_ratios", self.joint_to_motor_ratios_dict)
+        update_yaml(self.calib_path, "calibrated", True)
+
+
+class _FallbackMockDynamixelClient:
+    """Minimal in-memory fallback when dynamixel_sdk is unavailable."""
+
+    def __init__(self, motor_ids, port="/dev/ttyUSB0", baudrate=1000000):
+        self.motor_ids = list(motor_ids)
+        self._id_to_idx = {motor_id: idx for idx, motor_id in enumerate(self.motor_ids)}
+        self.port = port
+        self.baudrate = baudrate
+        self.is_connected = False
+        self._positions = np.zeros(len(self.motor_ids), dtype=float)
+        self._velocities = np.zeros(len(self.motor_ids), dtype=float)
+        self._currents = np.zeros(len(self.motor_ids), dtype=float)
+        self._temperatures = np.full(len(self.motor_ids), 30.0, dtype=float)
+
+    def connect(self):
+        self.is_connected = True
+
+    def disconnect(self):
+        self.is_connected = False
+
+    def set_torque_enabled(self, motor_ids, enabled):
+        return None
+
+    def set_operating_mode(self, motor_ids, mode):
+        return None
+
+    def write_desired_current(self, motor_ids, values):
+        arr = np.asarray(values, dtype=float).reshape(-1)
+        for motor_id, value in zip(motor_ids, arr):
+            idx = self._id_to_idx.get(int(motor_id))
+            if idx is not None:
+                self._currents[idx] = float(value)
+
+    def read_pos_vel_cur(self):
+        return self._positions.copy(), self._velocities.copy(), self._currents.copy()
+
+    def read_temperature(self):
+        return self._temperatures.copy()
+
+    def write_desired_pos(self, motor_ids, values):
+        arr = np.asarray(values, dtype=float).reshape(-1)
+        for motor_id, value in zip(motor_ids, arr):
+            idx = self._id_to_idx.get(int(motor_id))
+            if idx is not None:
+                self._positions[idx] = float(value)
     
 if __name__ == "__main__":
     # Example usage:

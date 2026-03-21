@@ -1,21 +1,24 @@
 import unittest
-import tempfile
 import os
 import shutil
 import yaml
-from orca_core import MockOrcaHand
-from orca_core.utils import read_yaml
+import uuid
+from orca_core.scripts.hand_runtime import MockOrcaHand
+from orca_core.utils.yaml_io import read_yaml
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_DIR = os.path.join(REPO_ROOT, "orca_core", "models", "orcahand_v1_right")
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+MODEL_DIR = os.path.join(REPO_ROOT, "models", "orca_hand_right")
 REAL_CONFIG = os.path.join(MODEL_DIR, "config.yaml")
 REAL_CALIB = os.path.join(MODEL_DIR, "calibration.yaml")
+TEST_TMP_ROOT = os.path.join(REPO_ROOT, ".tmp_tests")
 
 EXPECTED_LIMITS = [-1.0, 1.0]
 
 class TestOrcaHandCalibration(unittest.TestCase):
     def setUp(self):
-        self.temp_dir = tempfile.mkdtemp()
+        os.makedirs(TEST_TMP_ROOT, exist_ok=True)
+        self.temp_dir = os.path.join(TEST_TMP_ROOT, f"calib_{uuid.uuid4().hex}")
+        os.makedirs(self.temp_dir, exist_ok=False)
         self.config_path = os.path.join(self.temp_dir, "config.yaml")
         self.calib_path = os.path.join(self.temp_dir, "calibration.yaml")
         shutil.copy(REAL_CONFIG, self.config_path)

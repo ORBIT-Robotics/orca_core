@@ -8,79 +8,76 @@
   <a href="https://github.com/orcahand/orca_core/actions/workflows/test.yml" target="_blank"><img alt="Tests" src="https://github.com/orcahand/orca_core/actions/workflows/test.yml/badge.svg"/></a>
 </div>
 
-Orca Core is the core control package of the ORCA Hand. It's used to abstract hardware, provide scripts for calibration and tensioningm and to control the hand with simple high-level control methods in joint space.
+`orca_core` is the local ORBIT control package set for ORCA hands + HELIOS head.
 
-## Get Started
+It now uses folder-aligned namespace packages with explicit imports:
+- ORCA hand runtime scripts: `orca_core.scripts.*`
+- HELIOS head scripts: `helios_core.scripts.*`
+- Shared hardware drivers: `hardware.*`
+- HELIOS sensors: `helios_core.sensors.*`
 
-To get started with Orca Core, follow these steps:
+## Installation
+From this directory (`orca_core/`):
 
-1. **Create a virtual environment** (recommended):
+```sh
+pip install -e .
+```
 
-    ```sh
-    python -m venv venv
-    source venv/bin/activate
-    ```
+## Import Policy
+Always import from the defining module. Do not import through package roots.
 
-    You can also use **Poetry**, **pyenv**, **conda**, or any other environment manager if you prefer.
+Good:
 
-2. **Install dependencies**:
+```python
+from orca_core.scripts.hand_runtime import OrcaHand
+from helios_core.scripts.head_runtime import HeliosHeadRuntime
+from hardware.head_hardware import HeliosHeadHardware
+from helios_core.sensors.zedx_head_imu import ZedXHeadImu
+```
 
-    ```sh
-    pip install -e .
-    ```
+Bad:
 
-3. **Check the configuration file**:
+```python
+from package_root import RuntimeClass
+from package_root.utils import helper_fn
+```
 
-    - Review the config file (e.g., `orca_core/orca_core/models/orcahand_v1_right/config.yaml`) and make sure it matches your hardware setup.
+## Model Paths
+- Right hand: `models/orca_hand_right`
+- Left hand: `models/orca_hand_left`
+- HELIOS head config: `models/helios_head/config.yaml`
+- HELIOS head calibration: `models/helios_head/calibration.yaml`
 
-4. **Run the active tension and calibration scripts**:
+## ORCA Hand Quick Start
+Run hand tools using explicit module paths:
 
-    ```sh
-    python scripts/tension.py orca_core/models/orcahand_v1_right
-    python scripts/calibrate.py orca_core/models/orcahand_v1_right
-    ```
+```sh
+python -m orca_core.scripts.hand_tension models/orca_hand_right
+python -m orca_core.scripts.hand_calibrate models/orca_hand_right
+python -m orca_core.scripts.hand_neutral models/orca_hand_right
+```
 
-    Replace the path with your specific hand model folder if needed.
+Minimal runtime example:
 
-5. **Move the hand to the neutral position**:
+```python
+import time
+from orca_core.scripts.hand_runtime import OrcaHand
 
-    ```sh
-    python scripts/neutral.py orca_core/models/orcahand_v1_right
-    ```
+hand = OrcaHand("models/orca_hand_right")
+ok, msg = hand.connect()
+if not ok:
+    raise RuntimeError(msg)
 
-6. **Example usage: test.py**
+hand.enable_torque()
+hand.set_joint_pos({"index_mcp": 90, "middle_pip": 30}, num_steps=25, step_size=0.001)
+time.sleep(2.0)
+hand.disable_torque()
+hand.disconnect()
+```
 
-    Here is a minimal example script you can use to test your setup:
+## Tests
+From this directory (`orca_core/`):
 
-    ```python
-    from orca_core import OrcaHand
-    import time
-
-    hand = OrcaHand('orca_core/models/orcahand_v1_right')
-    status = hand.connect()
-    print(status)
-    if not status[0]:
-        print("Failed to connect to the hand.")
-        exit(1)
-
-    hand.enable_torque()
-
-    joint_dict = {
-        "index_mcp": 90,
-        "middle_pip": 30,
-    }
-
-    hand.set_joint_pos(joint_dict, num_steps=25, step_size=0.001)
-
-    time.sleep(2)
-    hand.disable_torque()
-    hand.disconnect()
-    ```
-
----
-
-**Note:**  
-- Always ensure your `config.yaml` matches your hardware and wiring.
-- Active scripts in `scripts/` are `calibrate.py`, `tension.py`, `neutral.py`, and `test.py`.
-
----
+```sh
+python -m pytest -q orca_core/tests helios_core/tests
+```
