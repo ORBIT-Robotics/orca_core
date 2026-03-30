@@ -1,0 +1,249 @@
+{
+  "version": 1,
+  "calibrated": true,
+  "updated_at": "2026-03-30T17:17:25.613960+00:00",
+  "hardware": {
+    "motor_ids": {
+      "yaw": 21,
+      "upper_left": 22,
+      "upper_right": 23
+    },
+    "imu_serial_number": 301709346
+  },
+  "motor_limits": {
+    "yaw": [
+      4.066583156585693,
+      9.371088981628418
+    ],
+    "upper_left": [
+      3.852132511138916,
+      12.766555309295654
+    ],
+    "upper_right": [
+      -4.1386799812316895,
+      6.0285444259643555
+    ]
+  },
+  "neutral": {
+    "motors": {
+      "yaw": 5.89815616607666,
+      "upper_left": 7.34623384475708,
+      "upper_right": 1.119805932044983
+    },
+    "imu_quaternion_xyzw": [
+      -0.0145926376049733,
+      0.12070887036453867,
+      0.013587138892113191,
+      0.9924876891930565
+    ],
+    "imu_rpy_rad": {
+      "yaw": 0.0,
+      "pitch": 0.0,
+      "roll": 0.0
+    }
+  },
+  "gains": {
+    "k_y": 553.9183119305511,
+    "k_p": 29.84209988614362,
+    "k_r": 12.133527863477333
+  },
+  "signs": {
+    "yaw_sign": -1.0,
+    "pitch_sign": 1.0,
+    "roll_sign": 1.0
+  },
+  "model": {
+    "jacobian_motor_to_head": [
+      [
+        -0.0018053203486173568,
+        -0.07273366178827836,
+        -0.03669336843730309
+      ],
+      [
+        4.258951229555876e-05,
+        0.022070735861990255,
+        0.011438970352226982
+      ],
+      [
+        0.009958710142739708,
+        0.049509011461863095,
+        -0.03290724960018643
+      ]
+    ],
+    "fit_rmse_rad": {
+      "yaw": 0.020282554047504443,
+      "pitch": 0.0028812192278120223,
+      "roll": 0.009853893683610832
+    }
+  },
+  "virtual_limits_rad": {
+    "yaw": 0.7,
+    "pitch": 0.55,
+    "roll": 0.55
+  },
+  "validation": {
+    "trials": [
+      {
+        "timestamp_utc": "2026-03-30T17:17:25.947652+00:00",
+        "name": "yaw",
+        "command_yaw": 0.15,
+        "command_pitch": 0.0,
+        "command_roll": 0.0,
+        "measured_yaw": 0.02498020268640976,
+        "measured_pitch": 0.0004474229188853318,
+        "measured_roll": -0.010601238942392118,
+        "error_yaw": -0.12501979731359023,
+        "error_pitch": 0.0004474229188853318,
+        "error_roll": -0.010601238942392118,
+        "motor_yaw": 5.802758121490479,
+        "motor_upper_left": 7.34623384475708,
+        "motor_upper_right": 1.119805932044983,
+        "leak_abs_yaw": 0.12501979731359023,
+        "leak_abs_pitch": 0.0004474229188853318,
+        "leak_abs_roll": 0.010601238942392118
+      },
+      {
+        "timestamp_utc": "2026-03-30T17:17:26.283549+00:00",
+        "name": "yaw",
+        "command_yaw": -0.15,
+        "command_pitch": 0.0,
+        "command_roll": 0.0,
+        "measured_yaw": 0.023196761798028268,
+        "measured_pitch": 7.96885728582275e-06,
+        "measured_roll": -0.012546012690555181,
+        "error_yaw": 0.17319676179802826,
+        "error_pitch": 7.96885728582275e-06,
+        "error_roll": -0.012546012690555181,
+        "motor_yaw": 5.927592849731445,
+        "motor_upper_left": 7.34623384475708,
+        "motor_upper_right": 1.119805932044983,
+        "leak_abs_yaw": 0.17319676179802826,
+        "leak_abs_pitch": 7.96885728582275e-06,
+        "leak_abs_roll": 0.012546012690555181
+      },
+      {
+        "timestamp_utc": "2026-03-30T17:17:26.619388+00:00",
+        "name": "pitch",
+        "command_yaw": 0.0,
+        "command_pitch": 0.12,
+        "command_roll": 0.0,
+        "measured_yaw": 0.006830980786581507,
+        "measured_pitch": 0.0033036576638463266,
+        "measured_roll": -0.012679261466585564,
+        "error_yaw": 0.006830980786581507,
+        "error_pitch": -0.11669634233615367,
+        "error_roll": -0.012679261466585564,
+        "motor_yaw": 5.89815616607666,
+        "motor_upper_left": 7.4109526634216305,
+        "motor_upper_right": 1.2152039766311646,
+        "leak_abs_yaw": 0.006830980786581507,
+        "leak_abs_pitch": 0.11669634233615367,
+        "leak_abs_roll": 0.012679261466585564
+      },
+      {
+        "timestamp_utc": "2026-03-30T17:17:26.955296+00:00",
+        "name": "pitch",
+        "command_yaw": 0.0,
+        "command_pitch": -0.12,
+        "command_roll": 0.0,
+        "measured_yaw": 0.027978530902697384,
+        "measured_pitch": 0.001410866992777704,
+        "measured_roll": -0.011708082837882326,
+        "error_yaw": 0.027978530902697384,
+        "error_pitch": 0.1214108669927777,
+        "error_roll": -0.011708082837882326,
+        "motor_yaw": 5.89815616607666,
+        "motor_upper_left": 7.270777606964112,
+        "motor_upper_right": 1.0873011589050292,
+        "leak_abs_yaw": 0.027978530902697384,
+        "leak_abs_pitch": 0.1214108669927777,
+        "leak_abs_roll": 0.011708082837882326
+      },
+      {
+        "timestamp_utc": "2026-03-30T17:17:27.291460+00:00",
+        "name": "roll",
+        "command_yaw": 0.0,
+        "command_pitch": 0.0,
+        "command_roll": 0.12,
+        "measured_yaw": 0.036634049204671185,
+        "measured_pitch": 0.005367399319244903,
+        "measured_roll": 0.004858571648174392,
+        "error_yaw": 0.036634049204671185,
+        "error_pitch": 0.005367399319244903,
+        "error_roll": -0.1151414283518256,
+        "motor_yaw": 5.89815616607666,
+        "motor_upper_left": 7.354195213317871,
+        "motor_upper_right": 0.9829904079437256,
+        "leak_abs_yaw": 0.036634049204671185,
+        "leak_abs_pitch": 0.005367399319244903,
+        "leak_abs_roll": 0.1151414283518256
+      },
+      {
+        "timestamp_utc": "2026-03-30T17:17:27.628227+00:00",
+        "name": "roll",
+        "command_yaw": 0.0,
+        "command_pitch": 0.0,
+        "command_roll": -0.12,
+        "measured_yaw": 0.036985187637863084,
+        "measured_pitch": -0.004681225075124917,
+        "measured_roll": -0.009393204794045491,
+        "error_yaw": 0.036985187637863084,
+        "error_pitch": -0.004681225075124917,
+        "error_roll": 0.11060679520595451,
+        "motor_yaw": 5.89815616607666,
+        "motor_upper_left": 7.224758052825928,
+        "motor_upper_right": 1.0817476868629456,
+        "leak_abs_yaw": 0.036985187637863084,
+        "leak_abs_pitch": 0.004681225075124917,
+        "leak_abs_roll": 0.11060679520595451
+      },
+      {
+        "timestamp_utc": "2026-03-30T17:17:27.963352+00:00",
+        "name": "pitch_roll",
+        "command_yaw": 0.0,
+        "command_pitch": 0.1,
+        "command_roll": 0.08,
+        "measured_yaw": 0.024551422364909516,
+        "measured_pitch": 0.005315113850425268,
+        "measured_roll": -0.018651494365834492,
+        "error_yaw": 0.024551422364909516,
+        "error_pitch": -0.09468488614957474,
+        "error_roll": -0.0986514943658345,
+        "motor_yaw": 5.89815616607666,
+        "motor_upper_left": 7.306641674041748,
+        "motor_upper_right": 1.1599807500839234,
+        "leak_abs_yaw": 0.024551422364909516,
+        "leak_abs_pitch": 0.09468488614957474,
+        "leak_abs_roll": 0.0986514943658345
+      },
+      {
+        "timestamp_utc": "2026-03-30T17:17:28.300357+00:00",
+        "name": "pitch_roll",
+        "command_yaw": 0.0,
+        "command_pitch": -0.1,
+        "command_roll": -0.08,
+        "measured_yaw": 0.04649460044412518,
+        "measured_pitch": -0.003076221355782449,
+        "measured_roll": -0.017740596546992896,
+        "error_yaw": 0.04649460044412518,
+        "error_pitch": 0.09692377864421756,
+        "error_roll": 0.06225940345300711,
+        "motor_yaw": 5.89815616607666,
+        "motor_upper_left": 7.175671005249024,
+        "motor_upper_right": 1.0351457834243774,
+        "leak_abs_yaw": 0.04649460044412518,
+        "leak_abs_pitch": 0.09692377864421756,
+        "leak_abs_roll": 0.06225940345300711
+      }
+    ],
+    "summary": {
+      "num_trials": 8,
+      "rmse_yaw": 0.08056907469988965,
+      "rmse_pitch": 0.07645996057155763,
+      "rmse_roll": 0.07041607939969141,
+      "max_abs_error_yaw": 0.17319676179802826,
+      "max_abs_error_pitch": 0.1214108669927777,
+      "max_abs_error_roll": 0.1151414283518256
+    }
+  }
+}

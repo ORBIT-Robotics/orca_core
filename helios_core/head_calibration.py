@@ -82,7 +82,7 @@ class HeliosHeadCalibrator:
 
     def connect(self) -> None:
         self.hardware.connect()
-        calib_current = float(self.config.get("hardware", {}).get("calibration_current_limit_ma", 180.0))
+        calib_current = float(self.config.get("hardware", {}).get("calibration_current_limit_ma", 300.0))
         self.hardware.set_current_limit(calib_current)
         self.imu.open()
         print("[helios_head] Hardware and IMU connected.")
@@ -136,9 +136,38 @@ class HeliosHeadCalibrator:
     def _axis_index(self, axis: str) -> int:
         return self.axis_order.index(axis)
 
+    def _wait_for_target(
+        self,
+        target: np.ndarray,
+        *,
+        timeout_sec: float = 3.0,
+        position_tolerance_rad: float = 0.02,
+        stable_cycles: int = 4,
+        poll_period_sec: float = 0.05,
+    ) -> np.ndarray:
+        """Wait until the commanded position is reached closely enough."""
+        desired = np.asarray(target, dtype=float).reshape(3,)
+        stable_count = 0
+        deadline = time.monotonic() + max(0.0, float(timeout_sec))
+        last_pos = self.hardware.get_motor_positions(as_dict=False)
+
+        while time.monotonic() < deadline:
+            pos = self.hardware.get_motor_positions(as_dict=False)
+            last_pos = pos
+            err = np.max(np.abs(pos - desired))
+            if err <= position_tolerance_rad:
+                stable_count += 1
+                if stable_count >= max(1, int(stable_cycles)):
+                    return pos
+            else:
+                stable_count = 0
+            time.sleep(max(0.0, float(poll_period_sec)))
+
+        return last_pos
+
     def _search_limit_for_axis(self, axis: str, direction: int, anchor_positions: np.ndarray) -> LimitSearchResult:
         cfg = dict((self.config.get("calibration") or {}).get("limit_search", {}))
-        step_size_rad = abs(float(cfg.get("step_size_rad", 0.025)))
+        step_size_rad = abs(float(cfg.get("step_size_rad", 0.5)))
         step_period_sec = max(0.0, float(cfg.get("step_period_sec", 0.02)))
         stable_window = max(3, int(cfg.get("stable_window", 10)))
         stable_threshold_rad = abs(float(cfg.get("stable_threshold_rad", 0.003)))
@@ -185,6 +214,8 @@ class HeliosHeadCalibrator:
         return LimitSearchResult(axis=axis, direction=direction, limit_rad=float(history[-1]), reason="max_steps")
 
     def find_motor_limits(self) -> Dict[str, tuple[float, float]]:
+        cfg = dict((self.config.get("calibration") or {}).get("limit_search", {}))
+        reverse_direction_settle_sec = max(0.0, float(cfg.get("reverse_direction_settle_sec", 0.75)))
         base = self.hardware.get_motor_positions(as_dict=False)
         limits: Dict[str, List[float]] = {
             "yaw": [None, None],
@@ -204,7 +235,8 @@ class HeliosHeadCalibrator:
             )
 
             self.hardware.command_motor_positions(anchor, limits=None, max_step_rad=0.0)
-            time.sleep(0.20)
+            self._wait_for_target(anchor)
+            time.sleep(reverse_direction_settle_sec)
 
             lo = self._search_limit_for_axis(axis, -1, anchor)
             limits[axis][0] = lo.limit_rad
@@ -216,7 +248,7 @@ class HeliosHeadCalibrator:
             restore = self.hardware.get_motor_positions(as_dict=False)
             restore[idx] = base[idx]
             self.hardware.command_motor_positions(restore, limits=None, max_step_rad=0.0)
-            time.sleep(0.20)
+            self._wait_for_target(restore)
 
         self.motor_limits = {
             axis: (float(vals[0]), float(vals[1])) for axis, vals in limits.items()
@@ -230,6 +262,7 @@ class HeliosHeadCalibrator:
         time.sleep(settle_time_sec)
 
         motor_pos = self.hardware.get_motor_positions(as_dict=False)
+        self._validate_neutral_within_limits(motor_pos, margin_rad=0.0)
         imu_sample = self.imu.capture_neutral()
 
         self.neutral_motors = {
@@ -251,6 +284,24 @@ class HeliosHeadCalibrator:
         print(f"[helios_head] Captured neutral: {payload['motors']}")
         return payload
 
+    def release_for_manual_neutral(self) -> np.ndarray:
+        """Release torque so the operator can manually place the head at neutral."""
+        pos = self.hardware.get_motor_positions(as_dict=False)
+        self.hardware.disable_torque()
+        print(
+            "[helios_head] Torque disabled for neutral placement. "
+            "Move the head by hand to the desired neutral pose, then continue."
+        )
+        return pos
+
+    def prepare_capture_neutral(self) -> None:
+        """Re-enable control and hold the hand-placed neutral pose before capture."""
+        self.hardware.enable_torque()
+        self.hardware.set_current_limit(
+            float(self.config.get("hardware", {}).get("calibration_current_limit_ma", 180.0))
+        )
+        self.hardware.hold_current_position()
+
     def _ensure_neutral(self) -> None:
         if self.neutral_motors is None or self.neutral_imu_quat is None:
             raise RuntimeError("Neutral is not captured yet. Run capture_neutral() first.")
@@ -266,6 +317,26 @@ class HeliosHeadCalibrator:
         for axis, (lo, hi) in self.motor_limits.items():
             out[axis] = (lo + margin, hi - margin)
         return out
+
+    def _validate_neutral_within_limits(self, motor_pos: np.ndarray, *, margin_rad: float = 0.0) -> None:
+        if not self.motor_limits:
+            return
+
+        pos = np.asarray(motor_pos, dtype=float).reshape(3,)
+        limits = self._motor_limits_with_margin(margin_rad=margin_rad)
+        violations: List[str] = []
+        for idx, axis in enumerate(self.axis_order):
+            lo, hi = limits[axis]
+            value = float(pos[idx])
+            if value < lo or value > hi:
+                violations.append(f"{axis}={value:.5f} rad outside [{lo:.5f}, {hi:.5f}]")
+
+        if violations:
+            raise RuntimeError(
+                "Captured neutral is outside calibrated motor limits: "
+                + "; ".join(violations)
+                + ". Reposition the head within the discovered range and retry neutral capture."
+            )
 
     def return_to_neutral(self, ignore_if_missing: bool = False) -> np.ndarray:
         if self.neutral_motors is None:
@@ -444,6 +515,8 @@ class HeliosHeadCalibrator:
         probe_cfg = dict((self.config.get("calibration") or {}).get("probe", {}))
         settle_time_sec = max(0.0, float(probe_cfg.get("settle_time_sec", 0.30)))
         rest_time_sec = max(0.0, float(probe_cfg.get("rest_time_sec", 0.15)))
+        neutral_return_settle_sec = max(0.0, float(probe_cfg.get("neutral_return_settle_sec", 0.50)))
+        probe_command_max_step_rad = max(0.0, float(probe_cfg.get("command_max_step_rad", 0.20)))
         repeats = max(1, int(probe_cfg.get("repeats", 3)))
 
         motions = self._probe_motion_table()
@@ -458,15 +531,30 @@ class HeliosHeadCalibrator:
             ],
             dtype=float,
         )
+        self._validate_neutral_within_limits(
+            neutral,
+            margin_rad=float(self.config.get("safety", {}).get("motor_limit_margin_rad", 0.0)),
+        )
 
         samples: List[Dict] = []
         for repeat_idx in range(repeats):
             for trial_name, offsets in motions.items():
                 self.return_to_neutral()
-                time.sleep(rest_time_sec)
+                self._wait_for_target(neutral, timeout_sec=max(3.0, neutral_return_settle_sec + 2.0))
+                time.sleep(neutral_return_settle_sec)
 
                 target = neutral + offsets
-                commanded = self.hardware.command_motor_positions(target, limits=limits, max_step_rad=0.1)
+                commanded = self.hardware.command_motor_positions(
+                    target,
+                    limits=limits,
+                    max_step_rad=probe_command_max_step_rad,
+                )
+                self._wait_for_target(
+                    commanded,
+                    timeout_sec=max(3.0, settle_time_sec + 2.0),
+                    position_tolerance_rad=max(0.02, probe_command_max_step_rad * 0.25),
+                    stable_cycles=3,
+                )
                 time.sleep(settle_time_sec)
 
                 motor_state = self.hardware.read_state()
@@ -493,6 +581,7 @@ class HeliosHeadCalibrator:
                 )
 
         self.return_to_neutral()
+        self._wait_for_target(neutral, timeout_sec=max(3.0, neutral_return_settle_sec + 2.0))
         self.probe_samples = samples
 
         fit = self._fit_motor_to_head_jacobian(samples)
@@ -699,4 +788,3 @@ class HeliosHeadCalibrator:
         self.capture_neutral()
         self.run_imu_probe_calibration()
         return self.save_results()
-

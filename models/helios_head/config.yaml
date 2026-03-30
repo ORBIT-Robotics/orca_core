@@ -1,14 +1,14 @@
 hardware:
-  port: /dev/ttyUSB0
+  port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT9MISJT-if00-port0
   baudrate: 3000000
   control_mode: current_based_position
   motor_ids:
-    yaw: null
-    upper_left: null
-    upper_right: null
-  startup_current_limit_ma: 180
-  runtime_current_limit_ma: 260
-  calibration_current_limit_ma: 180
+    yaw: 21
+    upper_left: 22
+    upper_right: 23
+  startup_current_limit_ma: 300
+  runtime_current_limit_ma: 300
+  calibration_current_limit_ma: 300
   runtime_rate_hz: 80.0
   command_timeout_sec: 0.75
 
@@ -33,7 +33,7 @@ mapping:
 
 imu:
   backend: pyzed
-  serial_number: null
+  serial_number: 301709346
   max_sample_age_sec: 0.25
   sample_attempts: 25
   sample_sleep_sec: 0.01
@@ -49,24 +49,27 @@ calibration:
     wiggle_period_sec: 0.10
 
   limit_search:
-    step_size_rad: 0.025
+    step_size_rad: 0.1
     step_period_sec: 0.02
+    reverse_direction_settle_sec: 1.0
     stable_window: 10
     stable_threshold_rad: 0.003
     max_steps_per_direction: 800
-    current_spike_ma: 700.0
-    abort_current_ma: 1000.0
+    current_spike_ma: 300.0
+    abort_current_ma: 450.0
 
   neutral:
     settle_time_sec: 0.35
 
   probe:
     settle_time_sec: 0.30
-    rest_time_sec: 0.15
+    neutral_return_settle_sec: 1.0
+    rest_time_sec: 0.25
+    command_max_step_rad: 0.20
     repeats: 3
-    yaw_probe_delta_rad: 0.04
-    upper_common_probe_delta_rad: 0.03
-    upper_diff_probe_delta_rad: 0.03
+    yaw_probe_delta_rad: 0.08
+    upper_common_probe_delta_rad: 0.05
+    upper_diff_probe_delta_rad: 0.05
 
   validation:
     settle_time_sec: 0.30
