@@ -6,6 +6,8 @@
 # See the LICENSE file at the root of this repository for full license information.
 # ==============================================================================
 
+import glob
+import logging
 import os
 import time
 import math
@@ -105,6 +107,48 @@ class OrcaHand:
     def __del__(self):
         """Destructor to disconnect from the hand."""
         self.disconnect()
+
+    def _port_resolution_candidates(self, port: str) -> List[str]:
+        candidates: List[str] = []
+
+        if port:
+            candidates.append(port)
+
+        if port and any(char in port for char in "*?["):
+            candidates.extend(sorted(glob.glob(port)))
+
+        if port and port.startswith("/dev/serial/by-id/"):
+            candidates.extend(
+                sorted(glob.glob("/dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_*"))
+            )
+
+        candidates.extend(sorted(glob.glob("/dev/ttyUSB*")))
+        candidates.extend(sorted(glob.glob("/dev/ttyACM*")))
+
+        deduped: List[str] = []
+        for candidate in candidates:
+            if candidate and candidate not in deduped:
+                deduped.append(candidate)
+        return deduped
+
+    def _resolve_port_path(self) -> str:
+        side_env_port = ""
+        if self.type:
+            side_env_port = os.getenv(f"ORCA_{self.type.upper()}_PORT", "").strip()
+        env_port = os.getenv("ORCA_SERIAL_PORT", "").strip()
+        configured_port = side_env_port or env_port or self.port
+
+        for candidate in self._port_resolution_candidates(configured_port):
+            if os.path.exists(candidate):
+                if candidate != configured_port:
+                    logging.warning(
+                        "Resolved ORCA serial port '%s' -> '%s'.",
+                        configured_port,
+                        candidate,
+                    )
+                return candidate
+
+        return configured_port
         
     def connect(self) -> tuple[bool, str]:
         """Connect to the hand with the DynamixelClient.
@@ -113,9 +157,12 @@ class OrcaHand:
             tuple[bool, str]: (Success status, message).
         """
         try:
-            self._dxl_client = DynamixelClient(self.motor_ids, self.port, self.baudrate)
+            resolved_port = self._resolve_port_path()
+            self.port = resolved_port
+            self._dxl_client = DynamixelClient(self.motor_ids, resolved_port, self.baudrate)
             with self._motor_lock:
                 self._dxl_client.connect()
+            self.baudrate = self._dxl_client.baudrate
             return True, "Connection successful"
         except Exception as e:
             self._dxl_client = None
