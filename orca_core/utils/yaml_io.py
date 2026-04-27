@@ -49,7 +49,7 @@ _PROFILE_TO_MODEL_BY_SIDE = {
     },
     "v2_upper": {
         "left": "orca_hand_helios_upper_left",
-        "right": "orca_hand_helios_upper_right",
+        "right": "orca_hand_dip",
     },
     "v2_lower": {
         "left": "orca_hand_helios_lower_left",
