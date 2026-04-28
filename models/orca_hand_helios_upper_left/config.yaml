@@ -56,7 +56,7 @@ joint_to_motor_map:
   ring_mcp: 4
   ring_pip: -3
   pinky_abd: 14
-  pinky_mcp: -15
+  pinky_mcp: 15
   pinky_pip: 16
   wrist: -1
 joint_roms:
@@ -126,10 +126,10 @@ neutral_position:
   ring_mcp: 33.95
   ring_pip: 12.27
   pinky_abd: 16.14
-  pinky_mcp: 30.40
+  pinky_mcp: 60.00
   pinky_pip: -0.35
   wrist: 4.28
-calib_current: 350
+calib_current: 400
 calib_step_size: 0.1
 calib_step_period: 0.001
 calib_num_stable: 10
