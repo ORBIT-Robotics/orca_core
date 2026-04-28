@@ -1,4 +1,4 @@
-port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_* # linux stable by-id, resolved dynamically
+port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FTAK89KP-if00-port0 # linux stable by-id, resolved dynamically
 #port: /dev/cu.usbserial-FTAK89KP
 version: 0.2.1
 baudrate: 1000000
