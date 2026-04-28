@@ -53,9 +53,9 @@ from package_root.utils import helper_fn
 Run hand tools using explicit module paths:
 
 ```sh
-python -m orca_core.scripts.hand_tension models/orca_hand_right
-python -m orca_core.scripts.hand_calibrate models/orca_hand_right
-python -m orca_core.scripts.hand_neutral models/orca_hand_right
+python -m orca_core.scripts.hand_tension --role helios_upper_right
+python -m orca_core.scripts.hand_calibrate --role helios_upper_right
+python -m orca_core.scripts.hand_neutral --role helios_upper_right
 ```
 
 Minimal runtime example:
@@ -82,5 +82,4 @@ From this directory (`orca_core/`):
 ```sh
 python -m pytest -q orca_core/tests helios_core/tests
 ```
-
 
