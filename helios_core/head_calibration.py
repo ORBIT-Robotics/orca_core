@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from helios_core.head_config import (
+    DEFAULT_HEAD_ROLE,
     HeadMotorIDs,
     calibration_log_dir,
     calibration_output_path,
@@ -38,8 +39,8 @@ class LimitSearchResult:
 class HeliosHeadCalibrator:
     """Field-oriented calibration workflow for the tendon-driven HELIOS head."""
 
-    def __init__(self, config_path: Optional[str] = None):
-        config, cfg_path = load_head_config(config_path)
+    def __init__(self, config_path: Optional[str] = None, role: Optional[str] = DEFAULT_HEAD_ROLE):
+        config, cfg_path = load_head_config(config_path, role=role)
         self.config = config
         self.config_path = cfg_path
 

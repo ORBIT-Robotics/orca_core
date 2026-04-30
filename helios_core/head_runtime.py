@@ -8,7 +8,13 @@ from typing import Optional, Dict, Any
 
 import numpy as np
 
-from helios_core.head_config import load_head_config, parse_motor_ids, read_yaml, resolve_repo_path
+from helios_core.head_config import (
+    DEFAULT_HEAD_ROLE,
+    load_head_config,
+    parse_motor_ids,
+    read_yaml,
+    resolve_repo_path,
+)
 from helios_core.head_model import HeliosHeadCalibrationModel
 from hardware.head_hardware import HeliosHeadHardware
 
@@ -16,9 +22,8 @@ from hardware.head_hardware import HeliosHeadHardware
 class HeliosHeadRuntime:
     """Runtime helper used by ROS and script wrappers for HELIOS head control."""
 
-    def __init__(self, config_path: Optional[str] = None):
-        default_path = "orca_core/models/helios_head/config.yaml"
-        cfg, cfg_path = load_head_config(config_path or default_path)
+    def __init__(self, config_path: Optional[str] = None, role: Optional[str] = DEFAULT_HEAD_ROLE):
+        cfg, cfg_path = load_head_config(config_path, role=role)
         self.config: Dict[str, Any] = cfg
         self.config_path: Path = cfg_path
 
@@ -81,4 +86,3 @@ class HeliosHeadRuntime:
 
     def shutdown(self) -> None:
         self.hardware.disconnect()
-
