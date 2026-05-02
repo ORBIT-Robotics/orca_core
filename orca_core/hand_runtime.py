@@ -110,12 +110,22 @@ class OrcaHand:
 
     def _port_resolution_candidates(self, port: str) -> List[str]:
         candidates: List[str] = []
+        has_glob = bool(port and any(char in port for char in "*?["))
 
         if port:
             candidates.append(port)
 
-        if port and any(char in port for char in "*?["):
+        if has_glob:
             candidates.extend(sorted(glob.glob(port)))
+
+        # Exact ports are intentional. Do not fall through from a configured
+        # right-hand by-id path to the other FTDI or to /dev/ttyUSB*.
+        if port and not has_glob:
+            deduped: List[str] = []
+            for candidate in candidates:
+                if candidate and candidate not in deduped:
+                    deduped.append(candidate)
+            return deduped
 
         if port and port.startswith("/dev/serial/by-id/"):
             candidates.extend(
@@ -165,6 +175,11 @@ class OrcaHand:
             self.baudrate = self._dxl_client.baudrate
             return True, "Connection successful"
         except Exception as e:
+            if self._dxl_client is not None:
+                try:
+                    self._dxl_client.disconnect(force=True)
+                except Exception:
+                    logging.exception("Failed to force-close ORCA Dynamixel client after connect failure.")
             self._dxl_client = None
             return False, f"Connection failed: {str(e)}"
         
@@ -176,9 +191,15 @@ class OrcaHand:
         """
         try:
             with self._motor_lock:
-                self.disable_torque()
+                if self._dxl_client is None:
+                    return True, "Already disconnected"
+                try:
+                    self.disable_torque()
+                except Exception:
+                    logging.exception("Failed to disable torque during ORCA disconnect; forcing port close.")
                 time.sleep(0.1)
-                self._dxl_client.disconnect()
+                self._dxl_client.disconnect(force=True)
+                self._dxl_client = None
             return True, "Disconnected successfully"
         except Exception as e:
             return False, f"Disconnection failed: {str(e)}"

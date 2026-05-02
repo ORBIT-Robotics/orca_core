@@ -217,16 +217,27 @@ class DynamixelClient:
             "and hand-side model config."
         )
 
-    def disconnect(self):
+    def disconnect(self, force: bool = False):
         """Disconnects from the Dynamixel device."""
         if not self.is_connected:
+            if self in self.OPEN_CLIENTS:
+                self.OPEN_CLIENTS.remove(self)
             return
         if self.port_handler.is_using:
-            logging.error('Port handler in use; cannot disconnect.')
-            return
+            if not force:
+                logging.error('Port handler in use; cannot disconnect.')
+                return
+            logging.warning('Port handler in use during disconnect; forcing close.')
+            self.port_handler.is_using = False
         # Ensure motors are disabled at the end.
-        self.set_torque_enabled(self.motor_ids, False, retries=0)
-        self.port_handler.closePort()
+        try:
+            self.set_torque_enabled(self.motor_ids, False, retries=0)
+        except Exception:
+            if not force:
+                raise
+            logging.exception('Failed to disable torque during forced disconnect.')
+        finally:
+            self.port_handler.closePort()
         if self in self.OPEN_CLIENTS:
             self.OPEN_CLIENTS.remove(self)
 
