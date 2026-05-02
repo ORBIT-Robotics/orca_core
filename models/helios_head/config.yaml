@@ -31,16 +31,10 @@ mapping:
   pitch_sign: 1.0
   roll_sign: 1.0
 
-imu:
-  backend: pyzed
-  serial_number: 301709346
-  max_sample_age_sec: 0.25
-  sample_attempts: 25
-  sample_sleep_sec: 0.01
-
 calibration:
   output_path: orca_core/models/helios_head/calibration.yaml
   log_dir: logs/helios_head_calibration
+  endpoint_min_ratio: 0.000001
 
   tension:
     wiggle_enabled: false
@@ -60,21 +54,3 @@ calibration:
 
   neutral:
     settle_time_sec: 0.35
-
-  probe:
-    settle_time_sec: 0.30
-    neutral_return_settle_sec: 1.0
-    rest_time_sec: 0.25
-    command_max_step_rad: 0.20
-    repeats: 3
-    yaw_probe_delta_rad: 0.08
-    upper_common_probe_delta_rad: 0.05
-    upper_diff_probe_delta_rad: 0.05
-
-  validation:
-    settle_time_sec: 0.30
-    commands_rad:
-      yaw: [0.15, -0.15]
-      pitch: [0.12, -0.12]
-      roll: [0.12, -0.12]
-      pitch_roll: [[0.10, 0.08], [-0.10, -0.08]]

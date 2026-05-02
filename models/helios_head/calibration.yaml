@@ -1,12 +1,11 @@
-version: 1
-calibrated: false
-updated_at: '2026-03-30T20:05:55.178967+00:00'
+version: 2
+calibrated: true
+updated_at: '2026-05-01T00:00:00+00:00'
 hardware:
   motor_ids:
     yaw: 21
     upper_left: 22
     upper_right: 23
-  imu_serial_number: 301709346
 motor_limits:
   yaw:
   - 0.3604854941368103
@@ -22,185 +21,15 @@ neutral:
     yaw: 0.8682331442832947
     upper_left: 1.6106798648834229
     upper_right: 0.6028544306755066
-  imu_quaternion_xyzw:
-  - 0.013472026067275999
-  - -0.06711865143392826
-  - 0.048402379671076565
-  - 0.9964792023848317
-  imu_rpy_rad:
-    yaw: 0.0
-    pitch: 0.0
-    roll: 0.0
-gains:
-  k_y: 2.281947043455252
-  k_p: 82.55091215212346
-  k_r: 15.992415814842863
+joint_to_motor_ratios:
+  yaw: 0.7253537859235492
+  pitch: 7.736562642184171
+  roll: 7.736562642184171
 signs:
-  yaw_sign: -1.0
-  pitch_sign: -1.0
+  yaw_sign: 1.0
+  pitch_sign: 1.0
   roll_sign: 1.0
-model:
-  jacobian_motor_to_head:
-  - - -0.4382222641266169
-    - -0.05483030784346826
-    - -0.023578495258628585
-  - - 0.006385177752451201
-    - -0.011021505916409118
-    - -0.0010922306121130092
-  - - 0.4074389712791675
-    - 0.07183683762905295
-    - 0.009307197856187664
-  fit_rmse_rad:
-    yaw: 0.2610927713361671
-    pitch: 0.048911068500198863
-    roll: 0.2360202055707836
 virtual_limits_rad:
   yaw: 0.7
   pitch: 0.55
   roll: 0.55
-validation:
-  trials:
-  - timestamp_utc: '2026-03-30T20:04:19.418147+00:00'
-    name: yaw
-    command_yaw: 0.15
-    command_pitch: 0.0
-    command_roll: 0.0
-    measured_yaw: 0.2739955625157982
-    measured_pitch: 0.05586420340070486
-    measured_roll: -0.24519883500893774
-    error_yaw: 0.12399556251579821
-    error_pitch: 0.05586420340070486
-    error_roll: -0.24519883500893774
-    motor_yaw: 0.759029233455658
-    motor_upper_left: 1.1612234115600586
-    motor_upper_right: 0.8544272780418396
-    leak_abs_yaw: 0.12399556251579821
-    leak_abs_pitch: 0.05586420340070486
-    leak_abs_roll: 0.24519883500893774
-  - timestamp_utc: '2026-03-30T20:04:19.753958+00:00'
-    name: yaw
-    command_yaw: -0.15
-    command_pitch: 0.0
-    command_roll: 0.0
-    measured_yaw: 0.273916492037576
-    measured_pitch: 0.055927245112391555
-    measured_roll: -0.24480153096849494
-    error_yaw: 0.423916492037576
-    error_pitch: 0.055927245112391555
-    error_roll: -0.24480153096849494
-    motor_yaw: 0.8915340662002563
-    motor_upper_left: 1.1612234115600586
-    motor_upper_right: 0.8544272780418396
-    leak_abs_yaw: 0.423916492037576
-    leak_abs_pitch: 0.055927245112391555
-    leak_abs_roll: 0.24480153096849494
-  - timestamp_utc: '2026-03-30T20:04:20.089958+00:00'
-    name: pitch
-    command_yaw: 0.0
-    command_pitch: 0.12
-    command_roll: 0.0
-    measured_yaw: 0.2957446708032463
-    measured_pitch: 0.05327890246907341
-    measured_roll: -0.2573724540608828
-    error_yaw: 0.2957446708032463
-    error_pitch: -0.06672109753092659
-    error_roll: -0.2573724540608828
-    motor_yaw: 0.8728350400924683
-    motor_upper_left: 0.9906603336334229
-    motor_upper_right: 0.749825382232666
-    leak_abs_yaw: 0.2957446708032463
-    leak_abs_pitch: 0.06672109753092659
-    leak_abs_roll: 0.2573724540608828
-  - timestamp_utc: '2026-03-30T20:04:20.425863+00:00'
-    name: pitch
-    command_yaw: 0.0
-    command_pitch: -0.12
-    command_roll: 0.0
-    measured_yaw: 0.29108928915842963
-    measured_pitch: 0.052920837231861695
-    measured_roll: -0.26074566671861604
-    error_yaw: 0.29108928915842963
-    error_pitch: 0.1729208372318617
-    error_roll: -0.26074566671861604
-    motor_yaw: 0.8728350400924683
-    motor_upper_left: 1.063339924812317
-    motor_upper_right: 0.8731263041496277
-    leak_abs_yaw: 0.29108928915842963
-    leak_abs_pitch: 0.1729208372318617
-    leak_abs_roll: 0.26074566671861604
-  - timestamp_utc: '2026-03-30T20:04:20.762252+00:00'
-    name: roll
-    command_yaw: 0.0
-    command_pitch: 0.0
-    command_roll: 0.12
-    measured_yaw: 0.2950408240549101
-    measured_pitch: 0.05360387654572252
-    measured_roll: -0.2530282777319987
-    error_yaw: 0.2950408240549101
-    error_pitch: 0.05360387654572252
-    error_roll: -0.3730282777319987
-    motor_yaw: 0.8728350400924683
-    motor_upper_left: 1.0970875382423402
-    motor_upper_right: 0.7298836350440979
-    leak_abs_yaw: 0.2950408240549101
-    leak_abs_pitch: 0.05360387654572252
-    leak_abs_roll: 0.3730282777319987
-  - timestamp_utc: '2026-03-30T20:04:21.097742+00:00'
-    name: roll
-    command_yaw: 0.0
-    command_pitch: 0.0
-    command_roll: -0.12
-    measured_yaw: 0.306481507145969
-    measured_pitch: 0.05148655142472491
-    measured_roll: -0.26844869699993845
-    error_yaw: 0.306481507145969
-    error_pitch: 0.05148655142472491
-    error_roll: -0.14844869699993846
-    motor_yaw: 0.8728350400924683
-    motor_upper_left: 0.9200972557067871
-    motor_upper_right: 0.8470486164093017
-    leak_abs_yaw: 0.306481507145969
-    leak_abs_pitch: 0.05148655142472491
-    leak_abs_roll: 0.14844869699993846
-  - timestamp_utc: '2026-03-30T20:04:21.433766+00:00'
-    name: pitch_roll
-    command_yaw: 0.0
-    command_pitch: 0.1
-    command_roll: 0.08
-    measured_yaw: 0.3319804066446099
-    measured_pitch: 0.04783807479056312
-    measured_roll: -0.28372131410395873
-    error_yaw: 0.3319804066446099
-    error_pitch: -0.05216192520943688
-    error_roll: -0.36372131410395875
-    motor_yaw: 0.8728350400924683
-    motor_upper_left: 0.7912428617477417
-    motor_upper_right: 0.7053399324417114
-    leak_abs_yaw: 0.3319804066446099
-    leak_abs_pitch: 0.05216192520943688
-    leak_abs_roll: 0.36372131410395875
-  - timestamp_utc: '2026-03-30T20:04:21.769891+00:00'
-    name: pitch_roll
-    command_yaw: 0.0
-    command_pitch: -0.1
-    command_roll: -0.08
-    measured_yaw: 0.32235200503270356
-    measured_pitch: 0.047110938933223157
-    measured_roll: -0.2850791999457798
-    error_yaw: 0.32235200503270356
-    error_pitch: 0.14711093893322316
-    error_roll: -0.20507919994577978
-    motor_yaw: 0.8728350400924683
-    motor_upper_left: 0.8639224529266357
-    motor_upper_right: 0.82250497341156
-    leak_abs_yaw: 0.32235200503270356
-    leak_abs_pitch: 0.14711093893322316
-    leak_abs_roll: 0.20507919994577978
-  summary:
-    num_trials: 8
-    rmse_yaw: 0.3087028878918862
-    rmse_pitch: 0.09386740789929802
-    rmse_roll: 0.2715273755279356
-    max_abs_error_yaw: 0.423916492037576
-    max_abs_error_pitch: 0.1729208372318617
-    max_abs_error_roll: 0.3730282777319987

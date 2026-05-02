@@ -50,7 +50,6 @@ class HeliosHeadRoleSpec:
     port: str
     baudrate: int
     motor_ids: HeadMotorIDs
-    imu_serial_number: Optional[int]
 
     @property
     def calibration_path(self) -> Path:
@@ -265,15 +264,6 @@ def _head_role_spec_from_block(
         else model_path / "config.yaml"
     )
 
-    imu_serial_number = block.get("imu_serial_number")
-    if imu_serial_number is not None:
-        try:
-            imu_serial_number = int(imu_serial_number)
-        except (TypeError, ValueError) as exc:
-            raise ValueError(
-                f"{label}.imu_serial_number must be an integer, got {imu_serial_number!r}."
-            ) from exc
-
     return HeliosHeadRoleSpec(
         role=role,
         enabled=bool(block.get("enabled", False)),
@@ -283,7 +273,6 @@ def _head_role_spec_from_block(
         port=str(block.get("port") or "").strip(),
         baudrate=baudrate_int,
         motor_ids=_parse_role_motor_ids(block.get("motor_ids"), label=label),
-        imu_serial_number=imu_serial_number,
     )
 
 
@@ -388,11 +377,6 @@ def load_head_role_config(
     hw_cfg["baudrate"] = spec.baudrate
     hw_cfg["motor_ids"] = spec.motor_ids.as_dict
     merged["hardware"] = hw_cfg
-
-    if spec.imu_serial_number is not None:
-        imu_cfg = dict(merged.get("imu", {}))
-        imu_cfg["serial_number"] = spec.imu_serial_number
-        merged["imu"] = imu_cfg
 
     return merged, cfg_path, spec
 

@@ -15,7 +15,6 @@ It now uses folder-aligned namespace packages with explicit imports:
 - HELIOS head runtime/core modules: `helios_core.*`
 - ORCA hand CLI wrappers: `orca_core.scripts.*`
 - Shared hardware drivers: `hardware.*`
-- HELIOS sensors: `helios_core.sensors.*`
 
 ## Installation
 From this directory (`orca_core/`):
@@ -33,7 +32,6 @@ Good:
 from orca_core.hand_runtime import OrcaHand
 from helios_core.head_runtime import HeliosHeadRuntime
 from hardware.head_hardware import HeliosHeadHardware
-from helios_core.sensors.zedx_head_imu import ZedXHeadImu
 ```
 
 Bad:
@@ -82,4 +80,3 @@ From this directory (`orca_core/`):
 ```sh
 python -m pytest -q orca_core/tests helios_core/tests
 ```
-
