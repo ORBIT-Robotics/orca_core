@@ -54,6 +54,7 @@ DEFAULT_POS_SCALE = 2.0 * np.pi / 4096  # 0.088 degrees
 # See http://emanual.robotis.com/docs/en/dxl/x/xh430-v210/#goal-velocity
 DEFAULT_VEL_SCALE = 0.229 * 2.0 * np.pi / 60.0  # 0.229 rpm
 DEFAULT_CUR_SCALE = 1.34
+DEFAULT_MAX_CONSECUTIVE_READ_FAILURES = 3
 
 
 def dynamixel_cleanup_handler():
@@ -237,9 +238,12 @@ class DynamixelClient:
                 raise
             logging.exception('Failed to disable torque during forced disconnect.')
         finally:
-            self.port_handler.closePort()
-        if self in self.OPEN_CLIENTS:
-            self.OPEN_CLIENTS.remove(self)
+            self._sync_writers.clear()
+            try:
+                self.port_handler.closePort()
+            finally:
+                if self in self.OPEN_CLIENTS:
+                    self.OPEN_CLIENTS.remove(self)
 
     def set_torque_enabled(self,
                            motor_ids: Sequence[int],
@@ -379,15 +383,18 @@ class DynamixelClient:
                 errored_ids.append(motor_id)
 
         if errored_ids:
-            logging.error('Sync write failed for: %s', str(errored_ids))
+            sync_writer.clearParam()
+            raise OSError('Sync write failed for motor IDs: {}'.format(errored_ids))
         times.append(time.monotonic())
 
-        comm_result = sync_writer.txPacket()
-        self.handle_packet_result(comm_result, context='sync_write')
-        times.append(time.monotonic())
-
-        sync_writer.clearParam()
-        times.append(time.monotonic())
+        try:
+            comm_result = sync_writer.txPacket()
+            success = self.handle_packet_result(comm_result, context='sync_write')
+            times.append(time.monotonic())
+        finally:
+            sync_writer.clearParam()
+        if not success:
+            raise OSError('Dynamixel sync_write communication failed.')
         return times
 
     def check_connected(self):
@@ -453,6 +460,7 @@ class DynamixelReader:
         self.motor_ids = motor_ids
         self.address = address
         self.size = size
+        self._consecutive_read_failures = 0
         self._initialize_data()
 
         self.operation = self.client.dxl.GroupBulkRead(client.port_handler,
@@ -475,8 +483,11 @@ class DynamixelReader:
                 comm_result, context='read')
             retries -= 1
 
-        # If we failed, send a copy of the previous data.
         if not success:
+            self._record_read_failure('Bulk read communication failed.')
+            # Tolerate short read glitches by returning the most recent sample.
+            # After repeated failures we raise so the ROS hardware node can
+            # release the serial port and the manual supervisor can restart.
             return self._get_data()
 
         errored_ids = []
@@ -498,8 +509,23 @@ class DynamixelReader:
         if errored_ids:
             logging.error('Bulk read data is unavailable for: %s',
                           str(errored_ids))
+            self._record_read_failure(
+                'Bulk read data unavailable for motor IDs: {}'.format(errored_ids)
+            )
+        else:
+            self._consecutive_read_failures = 0
 
         return self._get_data()
+
+    def _record_read_failure(self, message: str):
+        self._consecutive_read_failures += 1
+        if self._consecutive_read_failures >= DEFAULT_MAX_CONSECUTIVE_READ_FAILURES:
+            raise OSError(
+                '{} Consecutive read failures: {}.'.format(
+                    message,
+                    self._consecutive_read_failures,
+                )
+            )
 
     def _initialize_data(self):
         """Initializes the cached data."""

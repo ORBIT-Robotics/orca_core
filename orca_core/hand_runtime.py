@@ -189,19 +189,27 @@ class OrcaHand:
         Returns:
             tuple[bool, str]: (Success status, message).
         """
+        client = None
         try:
             with self._motor_lock:
                 if self._dxl_client is None:
                     return True, "Already disconnected"
-                try:
-                    self.disable_torque()
-                except Exception:
-                    logging.exception("Failed to disable torque during ORCA disconnect; forcing port close.")
-                time.sleep(0.1)
-                self._dxl_client.disconnect(force=True)
+                client = self._dxl_client
+                # Do not call disable_torque() here: its default retry policy is
+                # intentionally unbounded for interactive use, but shutdown must
+                # always release the USB serial port so the supervisor can restart.
+                client.disconnect(force=True)
                 self._dxl_client = None
             return True, "Disconnected successfully"
         except Exception as e:
+            if client is not None:
+                try:
+                    client.disconnect(force=True)
+                except Exception:
+                    logging.exception("Failed to force-close ORCA Dynamixel client during disconnect.")
+                finally:
+                    if self._dxl_client is client:
+                        self._dxl_client = None
             return False, f"Disconnection failed: {str(e)}"
         
     def is_connected(self) -> bool:
