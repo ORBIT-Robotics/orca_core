@@ -24,9 +24,9 @@ motor_ids:
 - 16
 - 17
 joint_ids:
-- thumb_cmc
-- thumb_abd
 - thumb_mcp
+- thumb_abd
+- thumb_pip
 - thumb_dip
 - index_abd
 - index_mcp
@@ -42,9 +42,9 @@ joint_ids:
 - pinky_pip
 - wrist
 joint_to_motor_map:
-  thumb_cmc: -10
+  thumb_mcp: -10
   thumb_abd: -13
-  thumb_mcp: -12
+  thumb_pip: -12
   thumb_dip: 11
   index_abd: -7
   index_mcp: -8
@@ -61,9 +61,9 @@ joint_to_motor_map:
   wrist: -1
 
 cal_joint_to_motor_map:
-  thumb_cmc: -10
+  thumb_mcp: -10
   thumb_abd: -13
-  thumb_mcp: -12
+  thumb_pip: -12
   thumb_dip: 11
   index_abd: -7
   index_mcp: -8
@@ -80,13 +80,13 @@ cal_joint_to_motor_map:
   wrist: -1
 
 joint_roms:
-  thumb_cmc:
+  thumb_mcp:
   - -45
   - 33
   thumb_abd:
   - -18
   - 55
-  thumb_mcp:
+  thumb_pip:
   - -25
   - 100
   thumb_dip:
@@ -132,9 +132,9 @@ joint_roms:
   - -65
   - 35
 neutral_position:
-  thumb_cmc: 0
+  thumb_mcp: 0
   thumb_abd: 50
-  thumb_mcp: 33
+  thumb_pip: 33
   thumb_dip: 18
   index_abd: -14
   index_mcp: 2
@@ -157,10 +157,10 @@ calibration_threshold: 0.01
 calibration_sequence:
 - step: 1
   joints:
-    thumb_cmc: flex
+    thumb_mcp: flex
 - step: 2
   joints:
-    thumb_cmc: extend
+    thumb_mcp: extend
 - step: 3
   joints:
     thumb_abd: flex
@@ -169,10 +169,10 @@ calibration_sequence:
     thumb_abd: extend
 - step: 5
   joints:
-    thumb_mcp: flex
+    thumb_pip: flex
 - step: 6
   joints:
-    thumb_mcp: extend
+    thumb_pip: extend
 - step: 7
   joints:
     thumb_dip: flex
@@ -221,4 +221,3 @@ calibration_sequence:
 - step: 16
   joints:
     wrist: extend
-
