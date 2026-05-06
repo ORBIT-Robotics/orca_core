@@ -17,11 +17,19 @@ It now uses folder-aligned namespace packages with explicit imports:
 - Shared hardware drivers: `hardware.*`
 
 ## Installation
-From this directory (`orca_core/`):
+`orca_core` is not installed as a standalone dependency set in this repo. Use the
+parent `ORBIT_Teleop` environment files from the repo root; they install this
+checkout editable only where the runtime needs it:
 
 ```sh
-pip install -e .
+conda env create -f configs/environments/environment_orbit.yml
+conda env create -f configs/environments/environment_control.yml
+conda env create -f configs/environments/environment_vision.yml
 ```
+
+- `orbit`: offboard operator, retargeting/model metadata, dev/API checks.
+- `control`: Jetson ORCA hand + HELIOS head hardware deps.
+- `vision`: Jetson camera runtime only; no ORCA hardware deps.
 
 ## Import Policy
 Always import from the defining module. Do not import through package roots.
