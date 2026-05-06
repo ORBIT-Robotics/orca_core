@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
-from helios_core.head_config import (
+from helios_core.utils.head_config import (
     DEFAULT_HEAD_ROLE,
     HeadMotorIDs,
     calibration_log_dir,

@@ -1,7 +1,7 @@
 import unittest
 
 from helios_core.head_calibration import HeliosHeadCalibrator
-from helios_core.head_config import HeadMotorIDs
+from helios_core.utils.head_config import HeadMotorIDs
 from helios_core.head_model import HeliosHeadCalibrationModel
 from helios_core.head_runtime import HeliosHeadRuntime
 from hardware.head_hardware import HeliosHeadHardware

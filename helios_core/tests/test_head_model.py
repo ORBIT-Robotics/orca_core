@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from helios_core.head_config import HeadMotorIDs
+from helios_core.utils.head_config import HeadMotorIDs
 from helios_core.head_model import (
     HeliosHeadCalibrationModel,
     derive_endpoint_joint_to_motor_ratios,

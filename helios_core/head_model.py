@@ -7,7 +7,7 @@ from typing import Dict, Optional
 
 import numpy as np
 
-from helios_core.head_config import HeadMotorIDs
+from helios_core.utils.head_config import HeadMotorIDs
 
 
 MOTOR_AXES = ("yaw", "upper_left", "upper_right")
@@ -111,7 +111,7 @@ class HeliosHeadCalibrationModel:
         if int(data.get("version", 0)) < 2:
             raise ValueError(
                 "HELIOS head calibration schema version 2 is required. "
-                "Run scripts/apps/helios_head_calibrate.py to regenerate endpoint calibration."
+                "Run orca_core/helios_core/scripts/helios_head_calibrate.py to regenerate endpoint calibration."
             )
         if data.get("calibrated") is not True:
             raise ValueError("HELIOS head calibration is not marked calibrated.")

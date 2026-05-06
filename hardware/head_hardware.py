@@ -9,7 +9,7 @@ from typing import Dict, Iterable, Optional
 
 import numpy as np
 
-from helios_core.head_config import HeadMotorIDs
+from helios_core.utils.head_config import HeadMotorIDs
 from hardware.dynamixel_client import DynamixelClient
 
 
