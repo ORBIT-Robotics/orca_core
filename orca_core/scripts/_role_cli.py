@@ -19,7 +19,7 @@ def add_role_argument(parser) -> None:
     parser.add_argument(
         "--role",
         required=True,
-        help="ORCA hand role from configs/hardware/orca_hands.yaml.",
+        help="ORCA hand role from configs/<robot>.yaml.",
     )
 
 

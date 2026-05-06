@@ -154,7 +154,7 @@ def load_head_config(
     """Load HELIOS head config by explicit path or hardware role.
 
     An explicit path preserves the legacy behavior. Without a path, the default
-    role is resolved from configs/hardware/orca_hands.yaml and overlays the
+    role is resolved from configs/helios.yaml and overlays the
     model config's hardware fields.
     """
     if path is not None and str(path).strip():
@@ -200,8 +200,8 @@ def parse_motor_ids(config: Dict[str, Any]) -> HeadMotorIDs:
     return ids
 
 
-def _hardware_config_path(repo_root: Path) -> Path:
-    return repo_root / "configs" / "hardware" / "orca_hands.yaml"
+def _helios_robot_config_path(repo_root: Path) -> Path:
+    return repo_root / "configs" / "helios.yaml"
 
 
 def _load_yaml_direct(path: Path) -> Dict[str, Any]:
@@ -226,10 +226,10 @@ def _resolve_path(repo_root: Path, value: str | Path | None, *, label: str) -> P
 
 
 def _load_head_role_blocks(repo_root: Path) -> Dict[str, Any]:
-    doc = _load_yaml_direct(_hardware_config_path(repo_root))
-    roles = doc.get("head_roles")
+    doc = _load_yaml_direct(_helios_robot_config_path(repo_root))
+    roles = (doc.get("orca_hardware") or {}).get("head_roles")
     if not isinstance(roles, dict):
-        raise ValueError("configs/hardware/orca_hands.yaml must define a 'head_roles' mapping.")
+        raise ValueError("configs/helios.yaml must define orca_hardware.head_roles.")
     return roles
 
 
@@ -315,7 +315,7 @@ def validate_head_role_spec(
     if require_enabled and not spec.enabled:
         raise ValueError(
             f"HELIOS head role '{spec.role}' is disabled. Enable it and set an exact port "
-            "in configs/hardware/orca_hands.yaml before using it for hardware."
+            "in configs/helios.yaml before using it for hardware."
         )
 
     if validate_paths:
@@ -339,7 +339,7 @@ def _validate_exact_port(spec: HeliosHeadRoleSpec) -> None:
     if not spec.port:
         raise ValueError(
             f"HELIOS head role '{spec.role}' has no serial port. Set an exact "
-            "port in configs/hardware/orca_hands.yaml."
+            "port in configs/helios.yaml."
         )
     if any(char in spec.port for char in "*?["):
         raise ValueError(

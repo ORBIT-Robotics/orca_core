@@ -26,7 +26,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--role",
         default=DEFAULT_HEAD_ROLE,
-        help="HELIOS head role from configs/hardware/orca_hands.yaml.",
+        help="HELIOS head role from configs/helios.yaml.",
     )
     parser.add_argument(
         "--stage",
