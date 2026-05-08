@@ -73,7 +73,7 @@ joint_roms:
   - -25
   - 100
   thumb_dip:
-  - -15
+  - -118
   - 107
   index_abd:
   - -30
@@ -82,7 +82,7 @@ joint_roms:
   - -25
   - 100
   index_pip:
-  - -15
+  - -93
   - 107
   middle_abd:
   - -27
@@ -100,7 +100,7 @@ joint_roms:
   - -25
   - 100
   ring_pip:
-  - -15
+  - -93
   - 107
   pinky_abd:
   - -30
@@ -109,7 +109,7 @@ joint_roms:
   - -25
   - 100
   pinky_pip:
-  - -15
+  - -93
   - 107
   wrist:
   - -65
