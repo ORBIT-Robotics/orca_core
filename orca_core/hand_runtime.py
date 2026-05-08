@@ -78,8 +78,6 @@ class OrcaHand:
         self.joint_to_motor_map: Dict[str, float] = config.get('joint_to_motor_map', {})
         self.joint_roms_dict: Dict[str, List[float]] = config.get('joint_roms', {})
 
-        self.cal_joint_to_motor_map: Dict[str, float] = config.get('cal_joint_to_motor_map', self.joint_to_motor_map.copy())
-
         self.joint_inversion_dict = {}
         for joint, motor_id in self.joint_to_motor_map.items():
             if motor_id < 0 or math.copysign(1, motor_id) < 0:
@@ -88,16 +86,7 @@ class OrcaHand:
             else:
                 self.joint_inversion_dict[joint] = False
 
-        self.cal_joint_inversion_dict = {}
-        for joint, motor_id in self.cal_joint_to_motor_map.items():
-            if motor_id < 0 or math.copysign(1, motor_id) < 0:
-                self.cal_joint_inversion_dict[joint] = True
-                self.cal_joint_to_motor_map[joint] = int(abs(motor_id))
-            else:
-                self.cal_joint_inversion_dict[joint] = False
-
         self.joint_to_motor_map = {k: int(v) for k, v in self.joint_to_motor_map.items()} # This is to make IDs integers
-        self.cal_joint_to_motor_map = {k: int(v) for k, v in self.cal_joint_to_motor_map.items()} # This is to make IDs integers
 
         self.motor_to_joint_dict: Dict[int, str] = {v: k for k, v in self.joint_to_motor_map.items()}
 
@@ -518,7 +507,7 @@ class OrcaHand:
         self._compute_wrap_offsets_dict()
         for step in self.calib_sequence:
             for joint in step["joints"].keys():
-                motor_id = self.cal_joint_to_motor_map[joint]
+                motor_id = self.joint_to_motor_map[joint]
                 motor_limits[motor_id] = [None, None]
                 self._wrap_offsets_dict[motor_id] = 0.0
 
@@ -544,9 +533,9 @@ class OrcaHand:
                 else:
                     self.set_max_current(self.calib_current)
                     
-                motor_id = self.cal_joint_to_motor_map[joint]
+                motor_id = self.joint_to_motor_map[joint]
                 sign = 1 if direction == 'flex' else -1
-                if self.cal_joint_inversion_dict.get(joint, False):
+                if self.joint_inversion_dict.get(joint, False):
                     sign = -sign
                 directions[motor_id] = sign
                 position_buffers[motor_id] = deque(maxlen=self.calib_num_stable)
@@ -588,7 +577,7 @@ class OrcaHand:
                 
             # find ratios of all motors that have been calibrated in this step
             for joint, direction in step["joints"].items(): 
-                motor_id = self.cal_joint_to_motor_map[joint]
+                motor_id = self.joint_to_motor_map[joint]
                 if motor_limits[motor_id][0] is None or motor_limits[motor_id][1] is None:
                     continue
                 delta_motor = motor_limits[motor_id][1] - motor_limits[motor_id][0]
@@ -869,9 +858,6 @@ class OrcaHand:
         if len(self.motor_ids) != len(self.joint_to_motor_map):
             raise ValueError("Number of motor IDs and joints do not match.")
 
-        if len(self.motor_ids) != len(self.cal_joint_to_motor_map):
-            raise ValueError("Number of motor IDs and calibration joints do not match.")
-        
         if self.control_mode not in ['current_position', 'current_velocity', 'position', 'multi_turn_position', 'current_based_position']:
             raise ValueError("Invalid control mode.")
         
@@ -886,14 +872,6 @@ class OrcaHand:
             if motor_id not in self.motor_ids:
                 raise ValueError(f"Motor ID {motor_id} is not in the motor IDs list.")
 
-        for joint, motor_id in self.cal_joint_to_motor_map.items():
-            if joint not in self.joint_ids:
-                raise ValueError(f"Calibration joint {joint} is not defined.")
-            if joint not in self.joint_roms_dict:
-                raise ValueError(f"ROM for calibration joint {joint} is not defined.")
-            if motor_id not in self.motor_ids:
-                raise ValueError(f"Calibration motor ID {motor_id} is not in the motor IDs list.")
-            
         for joint, rom in self.joint_roms_dict.items():
             if rom[1] - rom[0] <= 0:
                 raise ValueError(f"ROM for joint {joint} is not valid.")
