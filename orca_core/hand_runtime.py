@@ -695,15 +695,32 @@ class OrcaHand:
                 offsets[motor_id] = 0.0
                 continue
 
+            buffer = 0.25 * np.pi
             if motor_pos[i] < lower_limit[i] - 0.25 * np.pi: # Some buffer to compensate for noise/slack differences
                 print(f"Motor ID {motor_id} is out of bounds: "
                     f"{lower_limit[i]} < {motor_pos[i]} < {higher_limit[i]}")
-                offsets[motor_id] = -2 * np.pi
+                offset = -2 * np.pi
+                wrapped_pos = motor_pos[i] - offset
+                if not (lower_limit[i] - buffer <= wrapped_pos <= higher_limit[i] + buffer):
+                    raise ValueError(
+                        f"Motor ID {motor_id} cannot be reconciled with a one-turn wrap: "
+                        f"{lower_limit[i]} < {motor_pos[i]} < {higher_limit[i]}, "
+                        f"wrapped={wrapped_pos}"
+                    )
+                offsets[motor_id] = offset
 
             elif motor_pos[i] > higher_limit[i] + 0.25 * np.pi: # Some buffer to compensate for noise/slack differences
                 print(f"Motor ID {motor_id} is out of bounds: "
                     f"{lower_limit[i]} < {motor_pos[i]} < {higher_limit[i]}")
-                offsets[motor_id] = +2 * np.pi
+                offset = +2 * np.pi
+                wrapped_pos = motor_pos[i] - offset
+                if not (lower_limit[i] - buffer <= wrapped_pos <= higher_limit[i] + buffer):
+                    raise ValueError(
+                        f"Motor ID {motor_id} cannot be reconciled with a one-turn wrap: "
+                        f"{lower_limit[i]} < {motor_pos[i]} < {higher_limit[i]}, "
+                        f"wrapped={wrapped_pos}"
+                    )
+                offsets[motor_id] = offset
 
             else:
                 offsets[motor_id] = 0.0

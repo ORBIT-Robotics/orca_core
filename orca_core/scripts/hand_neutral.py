@@ -32,10 +32,17 @@ def main() -> int:
         print(f"Failed to connect: {message}")
         return 1
 
-    hand.enable_torque()
-    hand.set_neutral_position()
-    hand.disable_torque()
-    hand.disconnect()
+    try:
+        hand.enable_torque()
+        hand.set_neutral_position()
+    except Exception as exc:
+        print(f"ERROR: {exc}")
+        return 1
+    finally:
+        try:
+            hand.disable_torque()
+        finally:
+            hand.disconnect()
     return 0
 
 
