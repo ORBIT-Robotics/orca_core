@@ -534,14 +534,21 @@ class OrcaHand:
     def _calibrate(self):
             
         # Store the min and max values for each motor
-        motor_limits = self.motor_limits_dict.copy()
-
-        self._compute_wrap_offsets_dict()
+        motor_limits = {
+            motor_id: list(self.motor_limits_dict.get(motor_id, [None, None]))
+            for motor_id in self.motor_ids
+        }
+        calibrating_motor_ids = set()
         for step in self.calib_sequence:
             for joint in step["joints"].keys():
                 motor_id = self.joint_to_motor_map[joint]
+                calibrating_motor_ids.add(motor_id)
                 motor_limits[motor_id] = [None, None]
-                self._wrap_offsets_dict[motor_id] = 0.0
+
+        self.motor_limits_dict = motor_limits
+        self._compute_wrap_offsets_dict()
+        for motor_id in calibrating_motor_ids:
+            self._wrap_offsets_dict[motor_id] = 0.0
 
         motors_with_initial_offset = set()
         motors_with_final_offset = set()
