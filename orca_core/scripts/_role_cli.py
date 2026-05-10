@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from orca_core.hand_runtime import OrcaHand  # noqa: E402
+from orca_core.utils.yaml_io import read_yaml  # noqa: E402
 from openteach.helpers.orca_hand_roles import OrcaHandRoleSpec, load_orca_hand_role  # noqa: E402
 
 
@@ -34,9 +35,13 @@ def resolve_role(role: str) -> OrcaHandRoleSpec:
 
 
 def print_role_summary(spec: OrcaHandRoleSpec) -> None:
+    config = read_yaml(str(spec.model_path / "config.yaml"))
+    motor_type = str(config.get("motor_type", "dynamixel"))
+
     print(f"Using ORCA role: {spec.role}")
     print(f"Using model path: {spec.model_path}")
     print(f"Using calibration path: {spec.calibration_path}")
+    print(f"Using motor type: {motor_type}")
     print(f"Using serial port: {spec.port}")
     print(f"Using baudrate: {spec.baudrate}")
 

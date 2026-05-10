@@ -27,6 +27,18 @@ except ModuleNotFoundError:
 
 from orca_core.utils.yaml_io import get_model_path, read_yaml, update_yaml
 
+SUPPORTED_MOTOR_TYPES = ("dynamixel", "feetech")
+
+
+def _load_feetech_client_class():
+    try:
+        from orca_core.hardware.feetech_client import FeetechClient
+    except ModuleNotFoundError:
+        # Support local checkout layouts where hardware is exposed as top-level package.
+        from hardware.feetech_client import FeetechClient
+    return FeetechClient
+
+
 class OrcaHand:
     """OrcaHand class is used to abtract hardware control the hand of the robot with simple high level control methods in joint space."""
    
@@ -51,6 +63,7 @@ class OrcaHand:
         self.max_current: int = config.get('max_current', 300)
         self.control_mode: str = config.get('control_mode', 'current_position')
         self.type: str = config.get('type', None)
+        self.motor_type: str = str(config.get('motor_type', 'dynamixel')).strip().lower()
         
         self.calib_current: str = config.get('calib_current', config.get('calibration_current', 200))
         self.wrist_calib_current: str = config.get('wrist_calib_current', 100)
@@ -92,7 +105,7 @@ class OrcaHand:
 
         self._wrap_offsets_dict: Dict[int, float] = None
 
-        self._dxl_client: DynamixelClient = None
+        self._motor_client = None
         self._motor_lock: RLock = RLock()
 
         # Task thread to start and stop longer tasks like tensioning, calibration, etc. externally
@@ -159,9 +172,28 @@ class OrcaHand:
                 return candidate
 
         return configured_port
+
+    def _motor_client_class(self):
+        if self.motor_type == "dynamixel":
+            return DynamixelClient
+        if self.motor_type == "feetech":
+            return _load_feetech_client_class()
+        raise ValueError(
+            f"Unsupported motor_type '{self.motor_type}'. "
+            f"Expected one of {SUPPORTED_MOTOR_TYPES}."
+        )
+
+    def _create_motor_client(self, port: str):
+        return self._motor_client_class()(self.motor_ids, port, self.baudrate)
+
+    def _client_is_connected(self) -> bool:
+        if self._motor_client is None:
+            return False
+        connected = getattr(self._motor_client, "is_connected", False)
+        return bool(connected() if callable(connected) else connected)
         
     def connect(self) -> tuple[bool, str]:
-        """Connect to the hand with the DynamixelClient.
+        """Connect to the hand with the configured motor backend.
 
         Returns:
             tuple[bool, str]: (Success status, message).
@@ -169,18 +201,18 @@ class OrcaHand:
         try:
             resolved_port = self._resolve_port_path()
             self.port = resolved_port
-            self._dxl_client = DynamixelClient(self.motor_ids, resolved_port, self.baudrate)
+            self._motor_client = self._create_motor_client(resolved_port)
             with self._motor_lock:
-                self._dxl_client.connect()
-            self.baudrate = self._dxl_client.baudrate
+                self._motor_client.connect()
+            self.baudrate = self._motor_client.baudrate
             return True, "Connection successful"
         except Exception as e:
-            if self._dxl_client is not None:
+            if self._motor_client is not None:
                 try:
-                    self._dxl_client.disconnect(force=True)
+                    self._motor_client.disconnect(force=True)
                 except Exception:
-                    logging.exception("Failed to force-close ORCA Dynamixel client after connect failure.")
-            self._dxl_client = None
+                    logging.exception("Failed to force-close ORCA motor client after connect failure.")
+            self._motor_client = None
             return False, f"Connection failed: {str(e)}"
         
     def disconnect(self) -> tuple[bool, str]:
@@ -192,24 +224,24 @@ class OrcaHand:
         client = None
         try:
             with self._motor_lock:
-                if self._dxl_client is None:
+                if self._motor_client is None:
                     return True, "Already disconnected"
-                client = self._dxl_client
+                client = self._motor_client
                 # Do not call disable_torque() here: its default retry policy is
                 # intentionally unbounded for interactive use, but shutdown must
                 # always release the USB serial port so the supervisor can restart.
                 client.disconnect(force=True)
-                self._dxl_client = None
+                self._motor_client = None
             return True, "Disconnected successfully"
         except Exception as e:
             if client is not None:
                 try:
                     client.disconnect(force=True)
                 except Exception:
-                    logging.exception("Failed to force-close ORCA Dynamixel client during disconnect.")
+                    logging.exception("Failed to force-close ORCA motor client during disconnect.")
                 finally:
-                    if self._dxl_client is client:
-                        self._dxl_client = None
+                    if self._motor_client is client:
+                        self._motor_client = None
             return False, f"Disconnection failed: {str(e)}"
         
     def is_connected(self) -> bool:
@@ -218,7 +250,7 @@ class OrcaHand:
         Returns:
             bool: True if connected, False otherwise.
         """
-        return self._dxl_client.is_connected if self._dxl_client else False
+        return self._client_is_connected()
         
     def enable_torque(self, motor_ids: List[int] = None):
         """Enable torque for the motors.
@@ -229,7 +261,7 @@ class OrcaHand:
         if motor_ids is None:
             motor_ids = self.motor_ids
         with self._motor_lock:
-            self._dxl_client.set_torque_enabled(motor_ids, True)        
+            self._motor_client.set_torque_enabled(motor_ids, True)        
 
     def disable_torque(self, motor_ids: List[int] = None):
         """Disable torque for the motors.
@@ -240,7 +272,7 @@ class OrcaHand:
         if motor_ids is None:
             motor_ids = self.motor_ids
         with self._motor_lock:
-            self._dxl_client.set_torque_enabled(motor_ids, False)
+            self._motor_client.set_torque_enabled(motor_ids, False)
     
     def set_max_current(self, current: Union[float, List[float]]):
         """Set the maximum current for the motors.
@@ -252,10 +284,10 @@ class OrcaHand:
             if len(current) != len(self.motor_ids):
                 raise ValueError("Number of currents do not match the number of motors.")
             with self._motor_lock:
-                self._dxl_client.write_desired_current(self.motor_ids, current)
+                self._motor_client.write_desired_current(self.motor_ids, current)
         else:
             with self._motor_lock:
-                self._dxl_client.write_desired_current(self.motor_ids, current*np.ones(len(self.motor_ids)))
+                self._motor_client.write_desired_current(self.motor_ids, current*np.ones(len(self.motor_ids)))
         
     def set_control_mode(self, mode: str, motor_ids: List[int] = None):
         """Set the control mode for the motors.
@@ -288,7 +320,7 @@ class OrcaHand:
             else:
                 if not all(motor_id in self.motor_ids for motor_id in motor_ids):
                     raise ValueError("Invalid motor IDs.")
-            self._dxl_client.set_operating_mode(motor_ids, mode)
+            self._motor_client.set_operating_mode(motor_ids, mode)
             
     def get_motor_pos(self, as_dict: bool = False) -> Union[np.ndarray, dict]:
         """Get the current motor positions in radians (Note that this includes offsets of the motors).
@@ -301,7 +333,7 @@ class OrcaHand:
             Union[np.ndarray, dict]: Motor positions either as numpy array or dictionary {motor_id: position}.
         """
         with self._motor_lock:
-            motor_pos = self._dxl_client.read_pos_vel_cur()[0]
+            motor_pos = self._motor_client.read_pos_vel_cur()[0]
             if as_dict:
                 return {motor_id: pos for motor_id, pos in zip(self.motor_ids, motor_pos)}
             return motor_pos
@@ -317,7 +349,7 @@ class OrcaHand:
             Union[np.ndarray, dict]: Motor currents either as numpy array or dictionary {motor_id: current}.
         """
         with self._motor_lock:
-            motor_current = self._dxl_client.read_pos_vel_cur()[2]
+            motor_current = self._motor_client.read_pos_vel_cur()[2]
             if as_dict:
                 return {motor_id: current for motor_id, current in zip(self.motor_ids, motor_current)}
             return motor_current
@@ -333,7 +365,7 @@ class OrcaHand:
             Union[np.ndarray, dict]: Motor temperatures either as numpy array or dictionary {motor_id: temperature}.
         """
         with self._motor_lock:
-            motor_temp = self._dxl_client.read_temperature()
+            motor_temp = self._motor_client.read_temperature()
             if as_dict:
                 return {motor_id: temp for motor_id, temp in zip(self.motor_ids, motor_temp)}
             return motor_temp
@@ -511,6 +543,9 @@ class OrcaHand:
                 motor_limits[motor_id] = [None, None]
                 self._wrap_offsets_dict[motor_id] = 0.0
 
+        motors_with_initial_offset = set()
+        motors_with_final_offset = set()
+
         # Set calibration control mode
         self.set_control_mode('current_based_position')
         self.set_max_current(self.calib_current)
@@ -542,6 +577,13 @@ class OrcaHand:
                 position_logs[motor_id] = []
                 current_log[motor_id] = []
                 motor_reached_limit[motor_id] = False
+
+                if (
+                    getattr(self._motor_client, "requires_offset_calibration", False)
+                    and motor_id not in motors_with_initial_offset
+                ):
+                    self._motor_client.calibrate_offset(motor_id, upper=(sign < 0))
+                    motors_with_initial_offset.add(motor_id)
             
             while(not all(motor_reached_limit.values()) and not self._task_stop_event.is_set()):               
                 for motor_id, reached_limit in motor_reached_limit.items():
@@ -562,7 +604,8 @@ class OrcaHand:
                         if len(position_buffers[motor_id]) == self.calib_num_stable and np.allclose(position_buffers[motor_id], position_buffers[motor_id][0], atol=self.calib_threshold):
                             motor_reached_limit[motor_id] = True
                             # disable torque for the motor
-                            if 'wrist' in joint or 'abd' in joint:
+                            motor_joint = self.motor_to_joint_dict.get(motor_id, "")
+                            if 'wrist' in motor_joint or 'abd' in motor_joint:
                                 avg_limit = float(np.mean(position_buffers[motor_id]))
                             else:
                                 self.disable_torque([motor_id])
@@ -573,6 +616,18 @@ class OrcaHand:
                                 motor_limits[motor_id][1] = avg_limit
                             if directions[motor_id] == -1:
                                 motor_limits[motor_id][0] = avg_limit
+
+                            if (
+                                getattr(self._motor_client, "requires_offset_calibration", False)
+                                and motor_id not in motors_with_final_offset
+                            ):
+                                is_positive = directions[motor_id] > 0
+                                self._motor_client.calibrate_offset(motor_id, upper=is_positive)
+                                time.sleep(0.05)
+                                avg_limit = float(self.get_motor_pos()[self.motor_id_to_idx_dict[motor_id]])
+                                motor_limits[motor_id][1 if is_positive else 0] = avg_limit
+                                print(f"  (Offset adjusted: limit now at {avg_limit} rad)")
+                                motors_with_final_offset.add(motor_id)
                             self.enable_torque([motor_id])
                 
             # find ratios of all motors that have been calibrated in this step
@@ -795,7 +850,7 @@ class OrcaHand:
             else:
                 raise ValueError("desired_pos must be a dict, np.ndarray, or list.")
    
-            self._dxl_client.write_desired_pos(motor_ids_to_write, positions_to_write)
+            self._motor_client.write_desired_pos(motor_ids_to_write, positions_to_write)
     
     def _motor_to_joint_pos(self, motor_pos: np.ndarray) -> dict:
         """Convert motor positions into joint positions.
@@ -869,6 +924,12 @@ class OrcaHand:
     
     def _sanity_check(self):
         """Check if the configuration is correct and the IDs are consistent."""
+        if self.motor_type not in SUPPORTED_MOTOR_TYPES:
+            raise ValueError(
+                f"Invalid motor_type '{self.motor_type}'. "
+                f"Expected one of {SUPPORTED_MOTOR_TYPES}."
+            )
+
         if len(self.motor_ids) != len(self.joint_ids):
             raise ValueError("Number of motor IDs and joints do not match.")
         
@@ -993,7 +1054,7 @@ class OrcaHand:
 
 def require_connection(func):
     def wrapper(self, *args, **kwargs):
-        if not self._dxl_client.is_connected():
+        if not self._client_is_connected():
             raise RuntimeError("Hand is not connected.")
         return func(self, *args, **kwargs)
     return wrapper
@@ -1020,14 +1081,14 @@ class MockOrcaHand(OrcaHand):
             import importlib.util
 
             if importlib.util.find_spec("dynamixel_sdk") is None:
-                self._dxl_client = _FallbackMockDynamixelClient(self.motor_ids, self.port, self.baudrate)
+                self._motor_client = _FallbackMockDynamixelClient(self.motor_ids, self.port, self.baudrate)
             else:
-                self._dxl_client = MockDynamixelClient(self.motor_ids, self.port, self.baudrate)
+                self._motor_client = MockDynamixelClient(self.motor_ids, self.port, self.baudrate)
             with self._motor_lock:
-                self._dxl_client.connect()
+                self._motor_client.connect()
             return True, "Mock connection successful"
         except Exception as e:
-            self._dxl_client = None
+            self._motor_client = None
             return False, f"Mock connection failed: {str(e)}"
 
     def calibrate(self, blocking: bool = True):
@@ -1057,7 +1118,7 @@ class _FallbackMockDynamixelClient:
     def connect(self):
         self.is_connected = True
 
-    def disconnect(self):
+    def disconnect(self, force: bool = False):
         self.is_connected = False
 
     def set_torque_enabled(self, motor_ids, enabled):
