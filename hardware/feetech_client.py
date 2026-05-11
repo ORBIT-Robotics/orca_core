@@ -105,12 +105,10 @@ class FeetechClient(MotorClient):
 
         self._connected = False
 
-        # Default motion parameters
-        # Speed unit is 0.732 RPM per value; the motor's firmware caps speed
-        # to whatever its hardware can sustain, so passing a large value just
-        # means "go as fast as you can".
-        self._default_speed = 1500  # Effectively "max speed" for STS-class
-        self._default_acc = 150  # Acceleration (0-254): faster ramp-up
+        # Conservative bring-up defaults. Speed unit is 0.732 RPM per value;
+        # keep this low because calibration sends repeated position targets.
+        self._default_speed = 150
+        self._default_acc = 50
         self._default_torque = 500  # Torque limit (0-1000), required for motion
 
         self.OPEN_CLIENTS.add(self)
@@ -493,7 +491,7 @@ class FeetechClient(MotorClient):
 
     @property
     def requires_offset_calibration(self) -> bool:
-        return True
+        return False
 
     def _offset_calibration_target(self, upper: bool) -> int:
         """Return the Feetech raw target for an ORCA upper/lower calibration bound."""

@@ -1,3 +1,4 @@
+calibrated: false
 motor_limits:
   1:
   - null
@@ -68,4 +69,3 @@ joint_to_motor_ratios:
   15: 0.01403177751077188
   16: 0.015124224327706002
   17: 0.03481177911162377
-calibrated: false

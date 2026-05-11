@@ -18,6 +18,11 @@ except ModuleNotFoundError:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Calibrate ORCA hand.")
     add_role_argument(parser)
+    parser.add_argument(
+        "--force-wrist",
+        action="store_true",
+        help="Recalibrate the wrist even if it is already marked as calibrated.",
+    )
     args = parser.parse_args()
 
     try:
@@ -32,8 +37,13 @@ def main() -> int:
     if not success:
         return 1
 
-    hand.calibrate()
-    return 0
+    try:
+        print("Starting calibration...")
+        hand.calibrate(force_wrist=args.force_wrist)
+        print("Calibration complete.")
+        return 0
+    finally:
+        hand.disconnect()
 
 
 if __name__ == "__main__":

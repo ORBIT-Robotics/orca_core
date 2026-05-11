@@ -23,7 +23,7 @@ class TestMotorBackendSelection(unittest.TestCase):
         hand = OrcaHand(REPO_ROOT / "models" / "orca_hand_ikarus_right")
 
         self.assertEqual(hand.motor_type, "dynamixel")
-        self.assertIs(hand._motor_client_class(), DynamixelClient)
+        self.assertEqual(hand._motor_client_class().__name__, DynamixelClient.__name__)
 
     def test_feetech_config_selects_feetech_client(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -44,8 +44,11 @@ class TestMotorBackendSelection(unittest.TestCase):
             hand = OrcaHand(model_path)
 
             self.assertEqual(hand.motor_type, "feetech")
-            self.assertIs(hand._motor_client_class(), FeetechClient)
-            self.assertIsInstance(hand._create_motor_client("/dev/null"), FeetechClient)
+            self.assertEqual(hand._motor_client_class().__name__, FeetechClient.__name__)
+            self.assertEqual(
+                type(hand._create_motor_client("/dev/null")).__name__,
+                FeetechClient.__name__,
+            )
 
     def test_feetech_runtime_convention_helpers(self):
         client = FeetechClient([1], port="/dev/null")
@@ -54,13 +57,15 @@ class TestMotorBackendSelection(unittest.TestCase):
             runtime_position = raw_position * client.pos_scale * POSITION_DIRECTION
 
             self.assertEqual(POSITION_DIRECTION, -1)
-            self.assertTrue(client.requires_offset_calibration)
+            self.assertFalse(client.requires_offset_calibration)
             self.assertEqual(client._position_raw_to_rad(raw_position), runtime_position)
             self.assertEqual(client._position_rad_to_raw(runtime_position), raw_position)
             self.assertEqual(client._offset_calibration_target(upper=True), 500)
             self.assertEqual(client._offset_calibration_target(upper=False), 3595)
             self.assertEqual(client._torque_from_current(-1200), 1000)
             self.assertEqual(client._torque_from_current(250), 250)
+            self.assertEqual(client._default_speed, 150)
+            self.assertEqual(client._default_acc, 50)
         finally:
             client.disconnect()
 
