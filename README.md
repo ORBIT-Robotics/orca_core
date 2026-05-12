@@ -53,7 +53,9 @@ from package_root.utils import helper_fn
 - Right hand: `models/orca_hand_right`
 - Left hand: `models/orca_hand_left`
 - HELIOS head config: `models/helios_head/config.yaml`
-- HELIOS head calibration: `models/helios_head/calibration.yaml`
+- Calibration files: `models/*/calibration.yaml` are device-local and
+  gitignored. Run the hand or head calibration flow on each machine before
+  runtime; generated calibration data should not be committed.
 
 ## ORCA Hand Quick Start
 Run hand tools using explicit module paths:

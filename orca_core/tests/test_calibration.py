@@ -9,7 +9,6 @@ from orca_core.utils.yaml_io import read_yaml
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MODEL_DIR = os.path.join(REPO_ROOT, "models", "orca_hand_right")
 REAL_CONFIG = os.path.join(MODEL_DIR, "config.yaml")
-REAL_CALIB = os.path.join(MODEL_DIR, "calibration.yaml")
 TEST_TMP_ROOT = os.path.join(REPO_ROOT, ".tmp_tests")
 
 EXPECTED_LIMITS = [-1.0, 1.0]
@@ -22,7 +21,6 @@ class TestOrcaHandCalibration(unittest.TestCase):
         self.config_path = os.path.join(self.temp_dir, "config.yaml")
         self.calib_path = os.path.join(self.temp_dir, "calibration.yaml")
         shutil.copy(REAL_CONFIG, self.config_path)
-        shutil.copy(REAL_CALIB, self.calib_path)
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
@@ -53,7 +51,6 @@ class TestOrcaHandCalibration(unittest.TestCase):
 
 
     def test_calibration_yaml_missing(self):
-        os.remove(self.calib_path)
         hand = MockOrcaHand(self.temp_dir)
         hand.connect()
     
@@ -67,4 +64,3 @@ class TestOrcaHandCalibration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

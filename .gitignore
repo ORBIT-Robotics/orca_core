@@ -125,6 +125,10 @@ urdf/
 
 dev_scripts/
 
+# Device-local calibration artifacts. Each machine should generate these by
+# running the appropriate calibration flow for its connected hardware.
+models/*/calibration.yaml
+
 
 # macOS
 .DS_Store
