@@ -5,6 +5,7 @@ port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FTAK89GD-if00-port0 # 
 #port: /dev/tty.usbserial-FT9MISJT # mac
 max_current: 400
 type: right
+motor_type: dynamixel
 control_mode: current_based_position
 motor_ids:
 - 1

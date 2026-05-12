@@ -169,7 +169,7 @@ class MockDynamixelClient:
         # Start with all motors enabled.
         self.set_torque_enabled(self.motor_ids, True)
 
-    def disconnect(self):
+    def disconnect(self, force: bool = False):
         """Disconnects from the Dynamixel device."""
         if not self.is_connected:
             return
