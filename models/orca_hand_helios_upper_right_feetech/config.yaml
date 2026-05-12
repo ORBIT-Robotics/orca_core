@@ -1,6 +1,6 @@
 version: 0.2.1
 baudrate: 1000000
-port: /dev/serial/by-id/usb-1a86_USB_Single_Serial_5B79032752-if00 # linux stable by-id, Feetech CH340 adapter
+port: /dev/serial/by-id/usb-1a86_USB_Single_Serial_5B79031752-if00 # linux stable by-id, Feetech CH340 adapter
 #port: /dev/ttyUSB0 # linux (legacy)
 #port: /dev/tty.usbserial-FT9MISJT # mac
 max_current: 950
@@ -44,7 +44,6 @@ joint_ids:
 - pinky_pip
 - wrist
 
-
 joint_to_motor_map:
   thumb_mcp: 17
   thumb_abd: 14
@@ -63,6 +62,7 @@ joint_to_motor_map:
   pinky_mcp: 12
   pinky_pip: -11
   wrist: -1
+
 joint_roms:
   thumb_mcp:
   - -45
