@@ -29,7 +29,7 @@ except ModuleNotFoundError:
 from orca_core.scripts.feetech_check import parse_motor_ids, resolve_role_defaults
 
 
-DEFAULT_ROLE = "helios_lower_right_feetech"
+DEFAULT_ROLE = "helios_upper_right_feetech"
 DEFAULT_BAUDRATE = 1_000_000
 DEFAULT_TARGET_RAW = 2048
 DEFAULT_MOTOR_IDS = tuple(range(1, 18))

@@ -29,7 +29,7 @@ except ModuleNotFoundError:
     )
 
 
-DEFAULT_ROLE = "helios_lower_right_feetech"
+DEFAULT_ROLE = "helios_upper_right_feetech"
 DEFAULT_MOTOR_IDS = tuple(range(1, 18))
 DEFAULT_BAUDRATE = 1_000_000
 CURRENT_MA_PER_UNIT = 6.5
