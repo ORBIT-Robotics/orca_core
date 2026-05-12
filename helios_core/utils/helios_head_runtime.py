@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Jetson-side HELIOS head runtime scaffold.
+"""Debug-only HELIOS head runtime scaffold.
 
 Current behavior:
 - subscribes to `/helios/head/command`
 - republishes latest command as `/helios/head/state`
 
-This keeps the HELIOS runtime process active while low-level actuation is implemented.
+The hardware runtime lives in `ros2_ws/src/helios_head_hardware_interface`.
+This helper is only a no-hardware ROS echo for local wiring checks.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ class HeliosHeadRuntime(Node):
         super().__init__("helios_head_runtime")
         self._cmd_topic = cmd_topic
         self._state_topic = state_topic
-        self._head_cmd = np.zeros(2, dtype=float)
+        self._head_cmd = np.zeros(3, dtype=float)
         self._rx_count = 0
         self._warned_invalid = False
 
@@ -43,13 +44,13 @@ class HeliosHeadRuntime(Node):
 
     def _on_cmd(self, msg: Float64MultiArray) -> None:
         cmd = np.asarray(msg.data, dtype=float).reshape(-1)
-        if cmd.size < 2 or not np.all(np.isfinite(cmd[:2])):
+        if cmd.size != 3 or not np.all(np.isfinite(cmd)):
             if not self._warned_invalid:
                 self.get_logger().warning(f"Ignoring invalid head command payload (len={cmd.size}).")
                 self._warned_invalid = True
             return
 
-        self._head_cmd[:] = cmd[:2]
+        self._head_cmd[:] = cmd
         self._rx_count += 1
         self._warned_invalid = False
 

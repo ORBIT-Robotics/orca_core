@@ -21,23 +21,50 @@ _EXACT_PORT_PREFIXES = (
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class HeadMotorIDs:
     yaw: int
-    upper_left: int
-    upper_right: int
+    pitch: int
+    roll: int
+
+    def __init__(
+        self,
+        yaw: int,
+        pitch: int | None = None,
+        roll: int | None = None,
+        *,
+        upper_left: int | None = None,
+        upper_right: int | None = None,
+    ) -> None:
+        pitch_value = pitch if pitch is not None else upper_left
+        roll_value = roll if roll is not None else upper_right
+        if pitch_value is None or roll_value is None:
+            raise ValueError("HeadMotorIDs requires yaw, pitch, and roll motor IDs.")
+        object.__setattr__(self, "yaw", int(yaw))
+        object.__setattr__(self, "pitch", int(pitch_value))
+        object.__setattr__(self, "roll", int(roll_value))
 
     @property
     def ordered(self) -> tuple[int, int, int]:
-        return (self.yaw, self.upper_left, self.upper_right)
+        return (self.yaw, self.pitch, self.roll)
 
     @property
     def as_dict(self) -> Dict[str, int]:
         return {
             "yaw": self.yaw,
-            "upper_left": self.upper_left,
-            "upper_right": self.upper_right,
+            "pitch": self.pitch,
+            "roll": self.roll,
         }
+
+    @property
+    def upper_left(self) -> int:
+        """Legacy alias for older HELIOS head configs."""
+        return self.pitch
+
+    @property
+    def upper_right(self) -> int:
+        """Legacy alias for older HELIOS head configs."""
+        return self.roll
 
 
 @dataclass(frozen=True)
@@ -173,17 +200,17 @@ def parse_motor_ids(config: Dict[str, Any]) -> HeadMotorIDs:
     motor_ids = hw.get("motor_ids", {})
     try:
         yaw = motor_ids.get("yaw")
-        upper_left = motor_ids.get("upper_left")
-        upper_right = motor_ids.get("upper_right")
+        pitch = motor_ids.get("pitch", motor_ids.get("upper_left"))
+        roll = motor_ids.get("roll", motor_ids.get("upper_right"))
     except AttributeError as exc:
-        raise ValueError("hardware.motor_ids must be a mapping with yaw/upper_left/upper_right") from exc
+        raise ValueError("hardware.motor_ids must be a mapping with yaw/pitch/roll") from exc
 
     missing = [
         name
         for name, value in {
             "yaw": yaw,
-            "upper_left": upper_left,
-            "upper_right": upper_right,
+            "pitch": pitch,
+            "roll": roll,
         }.items()
         if value is None
     ]
@@ -191,10 +218,10 @@ def parse_motor_ids(config: Dict[str, Any]) -> HeadMotorIDs:
         raise ValueError(
             "Missing HELIOS head motor IDs in config: "
             + ", ".join(missing)
-            + ". Set hardware.motor_ids.{yaw,upper_left,upper_right}."
+            + ". Set hardware.motor_ids.{yaw,pitch,roll}."
         )
 
-    ids = HeadMotorIDs(int(yaw), int(upper_left), int(upper_right))
+    ids = HeadMotorIDs(int(yaw), int(pitch), int(roll))
     if len(set(ids.ordered)) != 3:
         raise ValueError(f"Head motor IDs must be unique; got {ids.ordered}")
     return ids
@@ -235,7 +262,7 @@ def _load_head_role_blocks(repo_root: Path) -> Dict[str, Any]:
 
 def _parse_role_motor_ids(value: Any, *, label: str) -> HeadMotorIDs:
     if not isinstance(value, dict):
-        raise ValueError(f"{label}.motor_ids must be a mapping with yaw/upper_left/upper_right.")
+        raise ValueError(f"{label}.motor_ids must be a mapping with yaw/pitch/roll.")
     return parse_motor_ids({"hardware": {"motor_ids": value}})
 
 

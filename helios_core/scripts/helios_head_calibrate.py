@@ -83,7 +83,7 @@ def _save_partial(cal: HeliosHeadCalibrator) -> None:
         payload["neutral"] = {
             "motors": {
                 axis: float(cal.neutral_motors[axis])
-                for axis in ("yaw", "upper_left", "upper_right")
+                for axis in ("yaw", "pitch", "roll")
             }
         }
     else:
@@ -106,17 +106,32 @@ def _save_partial(cal: HeliosHeadCalibrator) -> None:
 def _load_partial_into_calibrator(cal: HeliosHeadCalibrator) -> None:
     data = read_yaml(cal.calibration_path)
     motor_limits = data.get("motor_limits", {})
-    if all(axis in motor_limits for axis in ("yaw", "upper_left", "upper_right")):
+    axis_order = ("yaw", "pitch", "roll")
+    legacy_aliases = {"pitch": "upper_left", "roll": "upper_right"}
+
+    def _axis_value(mapping: dict, axis: str):
+        if axis in mapping:
+            return mapping[axis]
+        legacy_axis = legacy_aliases.get(axis)
+        if legacy_axis is not None and legacy_axis in mapping:
+            return mapping[legacy_axis]
+        raise KeyError(axis)
+
+    if all(axis in motor_limits or legacy_aliases.get(axis) in motor_limits for axis in axis_order):
         cal.motor_limits = {
-            axis: (float(motor_limits[axis][0]), float(motor_limits[axis][1]))
-            for axis in ("yaw", "upper_left", "upper_right")
+            axis: (
+                float(_axis_value(motor_limits, axis)[0]),
+                float(_axis_value(motor_limits, axis)[1]),
+            )
+            for axis in axis_order
         }
 
     neutral = (data.get("neutral") or {}).get("motors", {})
-    neutral_axes = ("yaw", "upper_left", "upper_right")
-    if isinstance(neutral, dict) and all(axis in neutral for axis in neutral_axes):
+    neutral_axes = axis_order
+    if isinstance(neutral, dict) and all(axis in neutral or legacy_aliases.get(axis) in neutral for axis in neutral_axes):
         cal.neutral_motors = {
-            axis: float(neutral[axis]) for axis in neutral_axes
+            axis: float(_axis_value(neutral, axis))
+            for axis in neutral_axes
         }
 
 
@@ -131,14 +146,14 @@ def main() -> None:
             cal.tension_assist()
             _save_partial(cal)
             _hold_until_interrupt(
-                "Head is holding current motor positions for manual tensioning.",
+                "Head is holding current motor positions for manual inspection.",
                 args.yes,
             )
             return
 
         if args.stage == "limits":
             _pause(
-                "Make sure tendons are manually tensioned, head is centered, and motors are away from end stops.",
+                "Make sure the head is mechanically safe, centered, and away from end stops.",
                 args.yes,
             )
             cal.find_motor_limits()
@@ -164,13 +179,13 @@ def main() -> None:
             return
 
         _pause(
-            "Step 1/4: Ensure power is on, communication is healthy, and tendon routing is complete.",
+            "Step 1/4: Ensure power is on, communication is healthy, and the head mount is mechanically safe.",
             args.yes,
         )
         cal.tension_assist()
 
         _pause(
-            "Step 2/4: Confirm tension is good (no slack, no over-tension, head centered).",
+            "Step 2/4: Confirm the mount is mechanically safe and the head is centered.",
             args.yes,
         )
         cal.find_motor_limits()

@@ -16,20 +16,20 @@ def _calibration_payload():
         "hardware": {
             "motor_ids": {
                 "yaw": 21,
-                "upper_left": 22,
-                "upper_right": 23,
+                "pitch": 22,
+                "roll": 23,
             },
         },
         "motor_limits": {
             "yaw": [-2.0, 2.0],
-            "upper_left": [-2.0, 2.0],
-            "upper_right": [-2.0, 2.0],
+            "pitch": [-2.0, 2.0],
+            "roll": [-2.0, 2.0],
         },
         "neutral": {
             "motors": {
                 "yaw": 0.0,
-                "upper_left": 0.0,
-                "upper_right": 0.0,
+                "pitch": 0.0,
+                "roll": 0.0,
             },
         },
         "joint_to_motor_ratios": {
@@ -65,7 +65,7 @@ class TestHeliosHeadEndpointModel(unittest.TestCase):
         target = model.virtual_to_motor_targets(cmd)
         state = model.motor_to_virtual(target)
 
-        np.testing.assert_allclose(target, np.array([0.5, 0.2, 0.6], dtype=float))
+        np.testing.assert_allclose(target, np.array([0.5, 0.4, -0.2], dtype=float))
         np.testing.assert_allclose(state, cmd)
 
     def test_virtual_and_motor_clipping(self):
@@ -74,7 +74,7 @@ class TestHeliosHeadEndpointModel(unittest.TestCase):
         target = model.virtual_to_motor_targets(np.array([2.0, 2.0, 0.0], dtype=float))
         clipped = model.clip_motor_targets(np.array([5.0, -5.0, 0.0], dtype=float), margin_rad=0.25)
 
-        np.testing.assert_allclose(target, np.array([1.0, 1.0, 1.0], dtype=float))
+        np.testing.assert_allclose(target, np.array([1.0, 1.0, 0.0], dtype=float))
         np.testing.assert_allclose(clipped, np.array([1.75, -1.75, 0.0], dtype=float))
 
     def test_old_or_uncalibrated_payload_fails_fast(self):
@@ -97,13 +97,13 @@ class TestHeliosHeadEndpointModel(unittest.TestCase):
         ratios = derive_endpoint_joint_to_motor_ratios(
             motor_limits={
                 "yaw": (-1.0, 2.0),
-                "upper_left": (-4.0, 5.0),
-                "upper_right": (-3.0, 7.0),
+                "pitch": (-4.0, 5.0),
+                "roll": (-3.0, 7.0),
             },
             neutral_motors={
                 "yaw": 0.0,
-                "upper_left": 1.0,
-                "upper_right": 2.0,
+                "pitch": 1.0,
+                "roll": 2.0,
             },
             virtual_limits_rad={
                 "yaw": 0.5,
@@ -112,15 +112,41 @@ class TestHeliosHeadEndpointModel(unittest.TestCase):
             },
         )
 
-        self.assertEqual(ratios, {"yaw": 2.0, "pitch": 4.0, "roll": 2.0})
+        self.assertEqual(ratios, {"yaw": 2.0, "pitch": 4.0, "roll": 2.5})
 
     def test_explicit_motor_ids_override_yaml(self):
         model = HeliosHeadCalibrationModel.from_yaml_dict(
             _calibration_payload(),
-            motor_ids=HeadMotorIDs(yaw=31, upper_left=32, upper_right=33),
+            motor_ids=HeadMotorIDs(yaw=31, pitch=32, roll=33),
         )
 
         self.assertEqual(model.motor_ids.ordered, (31, 32, 33))
+
+    def test_legacy_upper_motor_axis_names_still_load(self):
+        payload = _calibration_payload()
+        payload["hardware"]["motor_ids"] = {
+            "yaw": 21,
+            "upper_left": 22,
+            "upper_right": 23,
+        }
+        payload["motor_limits"] = {
+            "yaw": [-2.0, 2.0],
+            "upper_left": [-2.0, 2.0],
+            "upper_right": [-2.0, 2.0],
+        }
+        payload["neutral"]["motors"] = {
+            "yaw": 0.0,
+            "upper_left": 0.0,
+            "upper_right": 0.0,
+        }
+
+        model = HeliosHeadCalibrationModel.from_yaml_dict(payload)
+
+        self.assertEqual(model.motor_ids.ordered, (21, 22, 23))
+        np.testing.assert_allclose(
+            model.virtual_to_motor_targets(np.array([0.1, 0.2, 0.3], dtype=float)),
+            np.array([0.2, 0.4, 0.6], dtype=float),
+        )
 
 
 if __name__ == "__main__":

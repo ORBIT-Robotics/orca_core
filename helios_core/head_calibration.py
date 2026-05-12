@@ -39,7 +39,7 @@ class LimitSearchResult:
 
 
 class HeliosHeadCalibrator:
-    """Field-oriented endpoint calibration for the tendon-driven HELIOS head."""
+    """Field-oriented endpoint calibration for the HELIOS direct yaw/pitch/roll head."""
 
     def __init__(self, config_path: Optional[str] = None, role: Optional[str] = DEFAULT_HEAD_ROLE):
         config, cfg_path = load_head_config(config_path, role=role)
@@ -77,9 +77,9 @@ class HeliosHeadCalibrator:
 
     def tension_assist(self) -> Dict:
         """
-        Software assist for manual tendon tensioning.
+        Software assist for checking the head mechanics before endpoint search.
 
-        This intentionally does not claim to automate tendon threading/preload.
+        This intentionally does not claim to automate mechanical alignment.
         """
         cfg = dict((self.config.get("calibration") or {}).get("tension", {}))
         wiggle_enabled = bool(cfg.get("wiggle_enabled", False))
@@ -90,23 +90,29 @@ class HeliosHeadCalibrator:
         if wiggle_enabled:
             print("[helios_head] Running optional tension wiggle helper...")
             t_start = time.monotonic()
-            direction = 1.0
+            steps = (
+                np.array([0.0, wiggle_step_rad, 0.0], dtype=float),
+                np.array([0.0, -wiggle_step_rad, 0.0], dtype=float),
+                np.array([0.0, 0.0, wiggle_step_rad], dtype=float),
+                np.array([0.0, 0.0, -wiggle_step_rad], dtype=float),
+            )
+            step_idx = 0
             while time.monotonic() - t_start < wiggle_duration_sec:
-                step = np.array([0.0, direction * wiggle_step_rad, -direction * wiggle_step_rad], dtype=float)
+                step = steps[step_idx % len(steps)]
                 self.hardware.command_relative_offsets(step, limits=None)
-                direction *= -1.0
+                step_idx += 1
                 time.sleep(max(0.0, wiggle_period_sec))
 
         hold_pos = self.hardware.hold_current_position()
         print(
-            "[helios_head] Holding current motor positions for manual tensioning. "
-            "Adjust tendons physically, ensure no slack/over-tension, then continue."
+            "[helios_head] Holding current motor positions for manual inspection. "
+            "Check the head mount and mechanics, then continue."
         )
         return {
             "hold_motor_positions_rad": {
                 "yaw": float(hold_pos[0]),
-                "upper_left": float(hold_pos[1]),
-                "upper_right": float(hold_pos[2]),
+                "pitch": float(hold_pos[1]),
+                "roll": float(hold_pos[2]),
             }
         }
 
@@ -199,8 +205,8 @@ class HeliosHeadCalibrator:
         base = self.hardware.get_motor_positions(as_dict=False)
         limits: Dict[str, List[float]] = {
             "yaw": [None, None],
-            "upper_left": [None, None],
-            "upper_right": [None, None],
+            "pitch": [None, None],
+            "roll": [None, None],
         }
 
         for axis in self.axis_order:
@@ -242,8 +248,8 @@ class HeliosHeadCalibrator:
         self._validate_neutral_within_limits(motor_pos, margin_rad=0.0)
         self.neutral_motors = {
             "yaw": float(motor_pos[0]),
-            "upper_left": float(motor_pos[1]),
-            "upper_right": float(motor_pos[2]),
+            "pitch": float(motor_pos[1]),
+            "roll": float(motor_pos[2]),
         }
         self.endpoint_ratios = None
         self._latest_model = None
@@ -315,8 +321,8 @@ class HeliosHeadCalibrator:
         target = np.array(
             [
                 self.neutral_motors["yaw"],
-                self.neutral_motors["upper_left"],
-                self.neutral_motors["upper_right"],
+                self.neutral_motors["pitch"],
+                self.neutral_motors["roll"],
             ],
             dtype=float,
         )

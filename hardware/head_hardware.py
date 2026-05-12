@@ -22,14 +22,14 @@ class HeadMotorState:
 
 
 class HeliosHeadHardware:
-    """Thin wrapper over DynamixelClient for yaw + coupled upper pair motors."""
+    """Thin wrapper over DynamixelClient for direct yaw/pitch/roll motors."""
 
     def __init__(self, config: Dict, motor_ids: HeadMotorIDs):
         self._cfg = dict(config or {})
         hw_cfg = dict(self._cfg.get("hardware", {}))
 
         self.motor_ids = motor_ids
-        self.motor_order = ("yaw", "upper_left", "upper_right")
+        self.motor_order = ("yaw", "pitch", "roll")
         self._ordered_ids = motor_ids.ordered
         self._id_to_index = {motor_id: idx for idx, motor_id in enumerate(self._ordered_ids)}
 
@@ -124,8 +124,8 @@ class HeliosHeadHardware:
             return state.positions_rad
         return {
             "yaw": float(state.positions_rad[0]),
-            "upper_left": float(state.positions_rad[1]),
-            "upper_right": float(state.positions_rad[2]),
+            "pitch": float(state.positions_rad[1]),
+            "roll": float(state.positions_rad[2]),
         }
 
     def _targets_from_input(self, targets) -> np.ndarray:
@@ -133,8 +133,8 @@ class HeliosHeadHardware:
             arr = np.array(
                 [
                     float(targets["yaw"]),
-                    float(targets["upper_left"]),
-                    float(targets["upper_right"]),
+                    float(targets.get("pitch", targets.get("upper_left"))),
+                    float(targets.get("roll", targets.get("upper_right"))),
                 ],
                 dtype=float,
             )
@@ -151,8 +151,12 @@ class HeliosHeadHardware:
         if not limits:
             return targets
         clipped = targets.copy()
-        for idx, name in enumerate(("yaw", "upper_left", "upper_right")):
+        for idx, name in enumerate(("yaw", "pitch", "roll")):
             lim = limits.get(name)
+            if lim is None and name == "pitch":
+                lim = limits.get("upper_left")
+            if lim is None and name == "roll":
+                lim = limits.get("upper_right")
             if lim is None:
                 continue
             lo, hi = float(lim[0]), float(lim[1])
