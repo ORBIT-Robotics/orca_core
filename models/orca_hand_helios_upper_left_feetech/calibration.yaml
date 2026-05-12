@@ -1,0 +1,4 @@
+calibrated: false
+wrist_calibrated: false
+motor_limits: {}
+joint_to_motor_ratios: {}

@@ -29,7 +29,7 @@ except ModuleNotFoundError:
     )
 
 
-DEFAULT_ROLE = "helios_lower_right_feetech"
+DEFAULT_ROLE = "helios_upper_right_feetech"
 DEFAULT_MOTOR_IDS = tuple(range(1, 18))
 DEFAULT_BAUDRATE = 1_000_000
 CURRENT_MA_PER_UNIT = 6.5
@@ -79,11 +79,17 @@ def resolve_role_defaults(role: str) -> tuple[str | None, int | None]:
         return None, None
 
     try:
-        from orca_core.scripts._role_cli import resolve_role
+        from openteach.helpers.orca_hand_roles import load_orca_hand_role
     except ModuleNotFoundError:
         return None, None
 
-    spec = resolve_role(role)
+    spec = load_orca_hand_role(
+        role,
+        repo_root=Path(__file__).resolve().parents[3],
+        validate_paths=True,
+        require_enabled=False,
+        require_port=False,
+    )
     return spec.port, spec.baudrate
 
 
