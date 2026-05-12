@@ -72,7 +72,7 @@ class protocol_packet_handler(object):
             return (w >> 8) & 0xFF
         else:
             return w & 0xFF
-        
+
     def getProtocolVersion(self):
         return 1.0
 
@@ -110,7 +110,7 @@ class protocol_packet_handler(object):
 
         if error & ERRBIT_OVERELE:
             return "[ServoStatus] OverEle error!"
-        
+
         if error & ERRBIT_OVERLOAD:
             return "[ServoStatus] Overload error!"
 
@@ -529,7 +529,7 @@ class protocol_packet_handler(object):
 
         return result
 
-    
+
     def reOfsCal(self, scs_id, position):
         error = 0
 

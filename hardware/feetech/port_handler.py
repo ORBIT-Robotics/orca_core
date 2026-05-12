@@ -4,7 +4,7 @@ import time
 import sys
 
 DEFAULT_BAUDRATE = 1000000
-LATENCY_TIMER = 50 
+LATENCY_TIMER = 50
 
 class PortHandler(object):
     def __init__(self, port_name):
@@ -118,4 +118,4 @@ class PortHandler(object):
         if baudrate in [4800, 9600, 14400, 19200, 38400, 57600, 115200, 128000, 250000, 500000, 1000000]:
             return baudrate
         else:
-            return -1          
+            return -1

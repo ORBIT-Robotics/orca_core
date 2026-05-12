@@ -262,7 +262,7 @@ class OrcaHand:
         if motor_ids is None:
             motor_ids = self.motor_ids
         with self._motor_lock:
-            self._motor_client.set_torque_enabled(motor_ids, True)        
+            self._motor_client.set_torque_enabled(motor_ids, True)
 
     def disable_torque(self, motor_ids: List[int] = None):
         """Disable torque for the motors.
@@ -693,7 +693,7 @@ class OrcaHand:
                     continue
                 delta_motor = motor_limits[motor_id][1] - motor_limits[motor_id][0]
                 delta_joint = self.joint_roms_dict[joint][1] - self.joint_roms_dict[joint][0]
-                joint_to_motor_ratios[motor_id] = float(delta_motor / delta_joint) 
+                joint_to_motor_ratios[motor_id] = float(delta_motor / delta_joint)
                 print("Joint calibrated: ", joint)
                 step_calibrated_joints[joint] = 0.0
                 calibrated_joints[joint] = 0.0

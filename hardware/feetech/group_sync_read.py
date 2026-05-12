@@ -119,7 +119,7 @@ class GroupSyncRead:
             # print(calSum)
             if calSum != rxpacket[rx_index]:
                 return None, COMM_RX_CORRUPT
-            return data, COMM_SUCCESS 
+            return data, COMM_SUCCESS
         # print(rx_index)
         return None, COMM_RX_CORRUPT
 

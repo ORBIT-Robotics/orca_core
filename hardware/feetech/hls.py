@@ -100,7 +100,7 @@ class hls(protocol_packet_handler):
 
     def WheelMode(self, scs_id):
         return self.write1ByteTxRx(scs_id, HLS_MODE, 1)
-    
+
     def WriteSpec(self, scs_id, speed, acc, torque):
         speed = self.scs_toscs(speed, 15)
         txpacket = [acc, 0, 0, self.scs_lobyte(torque), self.scs_hibyte(torque), self.scs_lobyte(speed), self.scs_hibyte(speed)]
@@ -111,4 +111,3 @@ class hls(protocol_packet_handler):
 
     def unLockEprom(self, scs_id):
         return self.write1ByteTxRx(scs_id, HLS_LOCK, 0)
-
