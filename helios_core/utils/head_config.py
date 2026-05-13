@@ -113,19 +113,17 @@ def resolve_repo_path(path_str: str | Path) -> Path:
         return path
 
     repo_root = _repo_root()
-    local_pkg_root = Path(__file__).resolve().parents[1]
+    orca_core_root = Path(__file__).resolve().parents[2]
     candidates = []
     if path.parts and path.parts[0] == "orca_core" and len(path.parts) > 1:
         # Support repo-root style "orca_core/..." paths even when executing from
         # inside the standalone orca_core package checkout.
         stripped = Path(*path.parts[1:])
-        candidates.append((repo_root / stripped).resolve())
-        candidates.append((local_pkg_root / stripped).resolve())
         candidates.append((repo_root / path).resolve())
-        candidates.append((local_pkg_root / path).resolve())
+        candidates.append((orca_core_root / stripped).resolve())
     else:
         candidates.append((repo_root / path).resolve())
-        candidates.append((local_pkg_root / path).resolve())
+        candidates.append((orca_core_root / path).resolve())
 
     seen = set()
     for candidate in candidates:
@@ -137,8 +135,10 @@ def resolve_repo_path(path_str: str | Path) -> Path:
             return candidate
 
     if path.parts and path.parts[0] == "orca_core" and len(path.parts) > 1:
-        return (local_pkg_root / Path(*path.parts[1:])).resolve()
-    return (local_pkg_root / path).resolve()
+        if (repo_root / "orca_core").resolve() == orca_core_root:
+            return (repo_root / path).resolve()
+        return (orca_core_root / Path(*path.parts[1:])).resolve()
+    return (repo_root / path).resolve()
 
 
 def read_yaml(path: str | Path) -> Dict[str, Any]:
