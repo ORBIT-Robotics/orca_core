@@ -169,12 +169,15 @@ class DynamixelClient:
                 ('Failed to open port at {} (Check that the device is powered '
                  'on and connected to your computer).').format(self.port_name))
 
-        # Some hands are configured at 1M, others at 3M. Try configured baud
-        # first, then fall back so we can connect cleanly across hardware revs.
-        baud_candidates = []
-        for baud in (self.baudrate, 3000000, 1000000):
-            if baud not in baud_candidates:
-                baud_candidates.append(baud)
+        # Some hands are configured at 1M, others at 3M. For this bring-up,
+        # try only the configured baud so hardware faults are not masked by
+        # fallback attempts.
+        baud_candidates = [self.baudrate]
+        # Fallback probing disabled for now:
+        # baud_candidates = []
+        # for baud in (self.baudrate, 3000000, 1000000):
+        #     if baud not in baud_candidates:
+        #         baud_candidates.append(baud)
 
         baud_failures = {}
         for baud in baud_candidates:
