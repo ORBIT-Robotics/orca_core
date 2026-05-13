@@ -174,9 +174,13 @@ def update_yaml(file_path, key, value):
 
 
 def read_yaml(file_path):
-    """Reads a YAML file and returns its content."""
+    """Reads a YAML file and returns its content.
+
+    Empty or missing files are treated as empty mappings.
+    """
     try:
         with open(file_path, "r", encoding="utf-8") as file:
-            return yaml.safe_load(file) or None
+            data = yaml.safe_load(file)
+            return {} if data is None else data
     except FileNotFoundError:
         return {}

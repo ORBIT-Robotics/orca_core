@@ -30,6 +30,14 @@ from orca_core.utils.yaml_io import get_model_path, read_yaml, update_yaml
 SUPPORTED_MOTOR_TYPES = ("dynamixel", "feetech")
 
 
+def _read_calibration_yaml(calib_path: str) -> dict:
+    calib = read_yaml(calib_path)
+
+    if not isinstance(calib, dict):
+        raise ValueError(f"Calibration YAML must be a mapping: {calib_path}")
+    return calib
+
+
 def _load_feetech_client_class():
     try:
         from orca_core.hardware.feetech_client import FeetechClient
@@ -56,7 +64,7 @@ class OrcaHand:
         self.calib_path = os.path.join(self.model_path, "calibration.yaml")
         
         config = read_yaml(self.config_path)
-        calib = read_yaml(self.calib_path)
+        calib = _read_calibration_yaml(self.calib_path)
             
         self.baudrate: int = config.get('baudrate', 3000000)
         self.port: str = config.get('port', '/dev/ttyUSB0')

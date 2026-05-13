@@ -62,5 +62,30 @@ class TestOrcaHandCalibration(unittest.TestCase):
         
         self.check_calibrated(hand)
 
+    def test_empty_calibration_yaml_starts_uncalibrated(self):
+        open(self.calib_path, "w", encoding="utf-8").close()
+
+        hand = MockOrcaHand(self.temp_dir)
+
+        self.assertFalse(hand.calibrated)
+        self.assertFalse(hand.wrist_calibrated)
+        self.assertTrue(
+            all(limits == [None, None] for limits in hand.motor_limits_dict.values())
+        )
+        self.assertTrue(
+            all(ratio == 0.0 for ratio in hand.joint_to_motor_ratios_dict.values())
+        )
+
+        hand.connect()
+        hand.calibrate()
+        self.check_calibrated(hand)
+
+    def test_non_mapping_calibration_yaml_fails_clearly(self):
+        with open(self.calib_path, "w", encoding="utf-8") as file:
+            yaml.safe_dump([], file)
+
+        with self.assertRaisesRegex(ValueError, "Calibration YAML must be a mapping"):
+            MockOrcaHand(self.temp_dir)
+
 if __name__ == "__main__":
     unittest.main()

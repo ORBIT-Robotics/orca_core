@@ -45,6 +45,11 @@ class TestYamlFunctions(unittest.TestCase):
         data = read_yaml(self.test_file)
         self.assertEqual(data, self.initial_data)
 
+    def test_read_yaml_empty_file_returns_empty_mapping(self):
+        open(self.test_file, "w", encoding="utf-8").close()
+        data = read_yaml(self.test_file)
+        self.assertEqual(data, {})
+
     def test_update_yaml_creates_file(self):
         new_file = 'new_test.yaml'
         try:
