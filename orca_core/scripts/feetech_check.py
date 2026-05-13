@@ -78,6 +78,10 @@ def resolve_role_defaults(role: str) -> tuple[str | None, int | None]:
     if not role:
         return None, None
 
+    repo_root = Path(__file__).resolve().parents[3]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+
     try:
         from openteach.helpers.orca_hand_roles import load_orca_hand_role
     except ModuleNotFoundError:
@@ -85,7 +89,7 @@ def resolve_role_defaults(role: str) -> tuple[str | None, int | None]:
 
     spec = load_orca_hand_role(
         role,
-        repo_root=Path(__file__).resolve().parents[3],
+        repo_root=repo_root,
         validate_paths=True,
         require_enabled=False,
         require_port=False,
