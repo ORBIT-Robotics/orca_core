@@ -15,6 +15,7 @@ from pathlib import Path
 
 try:
     from orca_core.scripts._role_cli import print_role_summary, resolve_role
+    from orca_core.utils.yaml_io import read_yaml
 except ModuleNotFoundError:
     REPO_ROOT = Path(__file__).resolve().parents[3]
     ORCA_CORE_ROOT = REPO_ROOT / "orca_core"
@@ -23,6 +24,7 @@ except ModuleNotFoundError:
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
     from orca_core.scripts._role_cli import print_role_summary, resolve_role
+    from orca_core.utils.yaml_io import read_yaml
 
 
 DEFAULT_ROLES = (
@@ -31,6 +33,10 @@ DEFAULT_ROLES = (
     "helios_lower_left",
     "helios_lower_right",
 )
+
+ADDR_TORQUE_ENABLE = 64
+ADDR_HARDWARE_ERROR_STATUS = 70
+DYNAMIXEL_REBOOT_SETTLE_SEC = 1.5
 
 
 def _default_log_dir() -> Path:
@@ -44,6 +50,148 @@ def _build_child_command(role: str, force_wrist: bool) -> list[str]:
     if force_wrist:
         command.append("--force-wrist")
     return command
+
+
+def _load_model_config(spec) -> dict:
+    config = read_yaml(str(spec.model_path / "config.yaml"))
+    if not isinstance(config, dict):
+        raise ValueError(f"{spec.role} model config must be a mapping.")
+    return config
+
+
+def _role_motor_type(spec) -> str:
+    config = _load_model_config(spec)
+    return str(config.get("motor_type", "dynamixel")).strip().lower()
+
+
+def _role_motor_ids(spec) -> list[int]:
+    config = _load_model_config(spec)
+    motor_ids = config.get("motor_ids")
+    if not isinstance(motor_ids, list) or not motor_ids:
+        raise ValueError(
+            f"{spec.role} model config must define a non-empty motor_ids list."
+        )
+    return [int(motor_id) for motor_id in motor_ids]
+
+
+def _format_packet_status(packet_handler, comm_result: int, dxl_error: int) -> str:
+    parts = []
+    if comm_result != packet_handler.dxl.COMM_SUCCESS:
+        parts.append(packet_handler.getTxRxResult(comm_result))
+    if dxl_error:
+        parts.append(packet_handler.getRxPacketError(dxl_error))
+    return "; ".join(parts) if parts else "ok"
+
+
+def _read_hardware_errors(packet_handler, port_handler, motor_ids: list[int]) -> dict[int, int | None]:
+    statuses: dict[int, int | None] = {}
+    for motor_id in motor_ids:
+        value, comm_result, dxl_error = packet_handler.read1ByteTxRx(
+            port_handler,
+            motor_id,
+            ADDR_HARDWARE_ERROR_STATUS,
+        )
+        if comm_result != packet_handler.dxl.COMM_SUCCESS:
+            packet_status = _format_packet_status(packet_handler, comm_result, dxl_error)
+            print(f"    id={motor_id:02d} hw=???? status={packet_status}")
+            statuses[motor_id] = None
+            continue
+        print(f"    id={motor_id:02d} hw=0x{int(value):02x}")
+        statuses[motor_id] = int(value)
+    return statuses
+
+
+def _reboot_dynamixel_role(spec) -> bool:
+    try:
+        import dynamixel_sdk
+    except ModuleNotFoundError:
+        print(
+            "ERROR: dynamixel_sdk is missing. Run this from the control conda env.",
+            file=sys.stderr,
+        )
+        return False
+
+    motor_ids = _role_motor_ids(spec)
+    print(f"[{spec.role}] rebooting Dynamixel IDs {motor_ids}")
+    port_handler = dynamixel_sdk.PortHandler(spec.port)
+    packet_handler = dynamixel_sdk.PacketHandler(2.0)
+    packet_handler.dxl = dynamixel_sdk
+
+    if not port_handler.openPort():
+        print(f"[{spec.role}] ERROR: failed to open port {spec.port}", file=sys.stderr)
+        return False
+
+    try:
+        if not port_handler.setBaudRate(spec.baudrate):
+            print(
+                f"[{spec.role}] ERROR: failed to set baudrate {spec.baudrate}",
+                file=sys.stderr,
+            )
+            return False
+
+        print(f"[{spec.role}] hardware status before reboot:")
+        _read_hardware_errors(packet_handler, port_handler, motor_ids)
+
+        print(f"[{spec.role}] disabling torque")
+        for motor_id in motor_ids:
+            comm_result, dxl_error = packet_handler.write1ByteTxRx(
+                port_handler,
+                motor_id,
+                ADDR_TORQUE_ENABLE,
+                0,
+            )
+            packet_status = _format_packet_status(packet_handler, comm_result, dxl_error)
+            print(f"    id={motor_id:02d} torque_disable={packet_status}")
+
+        time.sleep(0.2)
+
+        print(f"[{spec.role}] rebooting motors")
+        for motor_id in motor_ids:
+            comm_result, dxl_error = packet_handler.reboot(port_handler, motor_id)
+            packet_status = _format_packet_status(packet_handler, comm_result, dxl_error)
+            print(f"    id={motor_id:02d} reboot={packet_status}")
+            time.sleep(0.25)
+
+        time.sleep(DYNAMIXEL_REBOOT_SETTLE_SEC)
+
+        print(f"[{spec.role}] hardware status after reboot:")
+        after_statuses = _read_hardware_errors(packet_handler, port_handler, motor_ids)
+        failed_ids = [
+            motor_id
+            for motor_id, status in after_statuses.items()
+            if status is None or status != 0
+        ]
+        if failed_ids:
+            print(
+                f"[{spec.role}] ERROR: hardware status still not clear for IDs {failed_ids}.",
+                file=sys.stderr,
+            )
+            return False
+
+        print(f"[{spec.role}] Dynamixel reboot verified clean.")
+        return True
+    finally:
+        port_handler.closePort()
+
+
+def _reboot_dynamixel_roles(specs) -> bool:
+    dynamixel_specs = []
+    for spec in specs:
+        motor_type = _role_motor_type(spec)
+        if motor_type == "dynamixel":
+            dynamixel_specs.append(spec)
+        else:
+            print(f"[{spec.role}] skipping reboot for motor_type={motor_type}")
+
+    if not dynamixel_specs:
+        print("No Dynamixel roles selected for reboot.")
+        return True
+
+    ok = True
+    for spec in dynamixel_specs:
+        if not _reboot_dynamixel_role(spec):
+            ok = False
+    return ok
 
 
 def _stream_child_output(
@@ -145,10 +293,18 @@ def main() -> int:
         help="Pass --force-wrist to each hand calibration process.",
     )
     parser.add_argument(
+        "--reboot",
+        action="store_true",
+        help=(
+            "Before calibration, reboot all configured motors for every selected "
+            "Dynamixel role and verify Hardware Error Status(70) is clear."
+        ),
+    )
+    parser.add_argument(
         "--stagger-sec",
         type=float,
-        default=0.0,
-        help="Delay between launching each role. Default: 0.0.",
+        default=1.0,
+        help="Delay between launching each role. Default: 1.0.",
     )
     parser.add_argument(
         "--log-dir",
@@ -200,18 +356,25 @@ def main() -> int:
         "Note: Dynamixel hands currently try only the configured baud. "
         "Fallback baud probing is disabled in DynamixelClient.connect()."
     )
+    if args.reboot:
+        print("Dynamixel reboot preflight: enabled.")
 
     if args.dry_run:
         return 0
 
     if not args.yes:
+        action = "reboot Dynamixel motors and calibrate" if args.reboot else "calibrate"
         confirmation = input(
-            "This will calibrate all listed hands at the same time. "
+            f"This will {action} all listed hands. "
             "Type CALIBRATE ALL to continue: "
         )
         if confirmation != "CALIBRATE ALL":
             print("Aborted.")
             return 130
+
+    if args.reboot and not _reboot_dynamixel_roles(specs):
+        print("ERROR: Dynamixel reboot preflight failed. Aborting calibration.", file=sys.stderr)
+        return 1
 
     log_dir = args.log_dir or _default_log_dir()
     log_dir.mkdir(parents=True, exist_ok=True)
