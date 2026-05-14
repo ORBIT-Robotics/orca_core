@@ -64,6 +64,8 @@ Run hand tools using explicit module paths:
 python -m orca_core.scripts.hand_tension --role helios_upper_right
 python -m orca_core.scripts.hand_calibrate --role helios_upper_right
 python -m orca_core.scripts.hand_neutral --role helios_upper_right
+python -m orca_core.scripts.hand_neutral_all --dry-run
+python -m orca_core.scripts.hand_reboot_all --dry-run
 ```
 
 For simultaneous HELIOS hand tensioning, omit `--role` or repeat it for the
