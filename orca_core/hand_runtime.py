@@ -29,6 +29,12 @@ from orca_core.utils.yaml_io import get_model_path, read_yaml, update_yaml
 
 SUPPORTED_MOTOR_TYPES = ("dynamixel", "feetech")
 
+_HARDCODED_DISABLED_FEETECH_MOTORS_BY_MODEL = {
+    # Known bad upper-left Feetech motor. Keep the ROS hand layout intact while
+    # never touching this ID on the bus or in wrap-limit checks.
+    "orca_hand_helios_upper_left_feetech": (2,),
+}
+
 
 def _read_calibration_yaml(calib_path: str) -> dict:
     calib = read_yaml(calib_path)
@@ -45,6 +51,11 @@ def _load_feetech_client_class():
         # Support local checkout layouts where hardware is exposed as top-level package.
         from hardware.feetech_client import FeetechClient
     return FeetechClient
+
+
+def _hardcoded_disabled_feetech_motor_ids(model_path: str) -> set[int]:
+    model_name = os.path.basename(os.fspath(model_path))
+    return set(_HARDCODED_DISABLED_FEETECH_MOTORS_BY_MODEL.get(model_name, ()))
 
 
 class OrcaHand:
@@ -87,6 +98,10 @@ class OrcaHand:
         
         self.motor_ids: List[int] = config.get('motor_ids', [])
         self.joint_ids: List[str] = config.get('joint_ids', [])
+        self.disabled_motor_ids = {
+            motor_id for motor_id in _hardcoded_disabled_feetech_motor_ids(self.model_path)
+            if motor_id in self.motor_ids
+        }
         self.motor_id_to_idx_dict: Dict[int, int] = {motor_id: i for i, motor_id in enumerate(self.motor_ids)}
 
         motor_limits_from_calib_dict = calib.get('motor_limits', {})
@@ -123,6 +138,12 @@ class OrcaHand:
         self._lock = threading.Lock() 
         self._current_task = None
         
+        if self.disabled_motor_ids:
+            logging.warning(
+                "Hardcoded disabled ORCA motor IDs for %s: %s",
+                os.path.basename(os.fspath(self.model_path)),
+                sorted(self.disabled_motor_ids),
+            )
         self._sanity_check()       
         self.is_calibrated(verbose=True)
 
@@ -193,7 +214,15 @@ class OrcaHand:
         )
 
     def _create_motor_client(self, port: str):
-        return self._motor_client_class()(self.motor_ids, port, self.baudrate)
+        motor_client_class = self._motor_client_class()
+        if self.motor_type == "feetech":
+            return motor_client_class(
+                self.motor_ids,
+                port,
+                self.baudrate,
+                disabled_motor_ids=sorted(self.disabled_motor_ids),
+            )
+        return motor_client_class(self.motor_ids, port, self.baudrate)
 
     def _client_is_connected(self) -> bool:
         if self._motor_client is None:
@@ -505,6 +534,8 @@ class OrcaHand:
         motors_with_warnings = set()
 
         for motor_id, limits in self.motor_limits_dict.items():
+            if motor_id in self.disabled_motor_ids:
+                continue
             if any(limit is None for limit in limits):
                 overall_calibrated = False
                 if not verbose:
@@ -517,6 +548,8 @@ class OrcaHand:
 
 
         for motor_id, ratio in self.joint_to_motor_ratios_dict.items():
+            if motor_id in self.disabled_motor_ids:
+                continue
             if ratio is None or ratio == 0.0:
                 overall_calibrated = False
                 if not verbose:
@@ -548,11 +581,13 @@ class OrcaHand:
     ) -> bool:
         limits_complete = all(
             limits[0] is not None and limits[1] is not None
-            for limits in motor_limits.values()
+            for motor_id, limits in motor_limits.items()
+            if motor_id not in self.disabled_motor_ids
         )
         ratios_complete = all(
             ratio is not None and ratio != 0.0
-            for ratio in joint_to_motor_ratios.values()
+            for motor_id, ratio in joint_to_motor_ratios.items()
+            if motor_id not in self.disabled_motor_ids
         )
         return limits_complete and ratios_complete
 
@@ -819,6 +854,9 @@ class OrcaHand:
 
         offsets = {}
         for i, motor_id in enumerate(self.motor_ids):
+            if motor_id in self.disabled_motor_ids:
+                offsets[motor_id] = 0.0
+                continue
             if lower_limit[i] is None or higher_limit[i] is None:
                 offsets[motor_id] = 0.0
                 continue
@@ -879,6 +917,8 @@ class OrcaHand:
                     if motor_id not in self.motor_ids:
                         print(f"Warning: Motor ID {motor_id} in desired_pos dict is not in self.motor_ids. Skipping.")
                         continue
+                    if motor_id in self.disabled_motor_ids:
+                        continue
 
                     if pos_val is None or math.isnan(pos_val):
                         continue
@@ -903,6 +943,9 @@ class OrcaHand:
                     )
                 
                 for i, pos_val in enumerate(desired_pos):
+                    motor_id = self.motor_ids[i]
+                    if motor_id in self.disabled_motor_ids:
+                        continue
                     if pos_val is None or math.isnan(pos_val):
                         continue
                     else:
@@ -941,6 +984,9 @@ class OrcaHand:
         for idx, pos in enumerate(motor_pos):
             motor_id = self.motor_ids[idx]
             joint_name = self.motor_to_joint_dict.get(motor_id)
+            if motor_id in self.disabled_motor_ids:
+                joint_pos[joint_name] = float(self.neutral_position.get(joint_name, 0.0))
+                continue
             if any(limit is None for limit in self.motor_limits_dict[motor_id]):
                 joint_pos[joint_name] = None #TODO: Add a warning here the probably the motor is not calibrated
             elif self.joint_to_motor_ratios_dict[motor_id] == 0:
@@ -970,7 +1016,10 @@ class OrcaHand:
                 
         for joint_name, pos in joint_pos.items():
             motor_id = self.joint_to_motor_map.get(joint_name)
-            if motor_id is None or pos is None:
+            if motor_id is None:
+                continue
+
+            if motor_id in self.disabled_motor_ids or pos is None:
                 motor_pos[self.motor_id_to_idx_dict[motor_id]] = None
                 continue
 
@@ -1037,7 +1086,9 @@ class OrcaHand:
                     raise ValueError(f"Invalid direction for joint {joint}.")
           
         
-        for motor_limit in self.motor_limits_dict.values():
+        for motor_id, motor_limit in self.motor_limits_dict.items():
+            if motor_id in self.disabled_motor_ids:
+                continue
             if any(limit is None for limit in motor_limit):
                 self.calibrated = False
                 update_yaml(self.calib_path, 'calibrated', False)
@@ -1058,7 +1109,8 @@ class OrcaHand:
         if move_motors:
             motors_to_move = [
                 motor_id for joint, motor_id in self.joint_to_motor_map.items()
-                if 'wrist' not in joint.lower() and motor_id in self.motor_ids
+                if 'wrist' not in joint.lower()
+                and motor_id in self.motor_ids and motor_id not in self.disabled_motor_ids
             ]
             self.set_max_current(self.calib_current)
 

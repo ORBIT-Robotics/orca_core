@@ -66,6 +66,9 @@ python -m orca_core.scripts.hand_calibrate --role helios_upper_right
 python -m orca_core.scripts.hand_neutral --role helios_upper_right
 ```
 
+For simultaneous HELIOS hand tensioning, omit `--role` or repeat it for the
+specific hand roles to lock together.
+
 Minimal runtime example:
 
 ```python

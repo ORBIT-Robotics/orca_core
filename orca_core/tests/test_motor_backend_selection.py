@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
 import yaml
 
 from orca_core.hand_runtime import OrcaHand
@@ -49,6 +50,30 @@ class TestMotorBackendSelection(unittest.TestCase):
                 type(hand._create_motor_client("/dev/null")).__name__,
                 FeetechClient.__name__,
             )
+
+    def test_upper_left_feetech_hardcodes_broken_motor_disabled(self):
+        hand = OrcaHand(REPO_ROOT / "models" / "orca_hand_helios_upper_left_feetech")
+        client = hand._create_motor_client("/dev/null")
+        try:
+            self.assertEqual(hand.disabled_motor_ids, {2})
+            self.assertEqual(client.disabled_motor_ids, {2})
+            self.assertNotIn(2, client.active_motor_ids)
+
+            hand._wrap_offsets_dict = None
+            hand.motor_limits_dict = {
+                motor_id: ([0.0, 1.0] if motor_id == 2 else [None, None])
+                for motor_id in hand.motor_ids
+            }
+            hand.get_motor_pos = lambda: np.array(
+                [100.0 if motor_id == 2 else 0.0 for motor_id in hand.motor_ids],
+                dtype=float,
+            )
+            hand._compute_wrap_offsets_dict()
+            self.assertEqual(hand._wrap_offsets_dict[2], 0.0)
+            joint_pos = hand._motor_to_joint_pos(np.zeros(len(hand.motor_ids), dtype=float))
+            self.assertEqual(joint_pos["middle_mcp"], hand.neutral_position["middle_mcp"])
+        finally:
+            client.disconnect()
 
     def test_feetech_runtime_convention_helpers(self):
         client = FeetechClient([1], port="/dev/null")

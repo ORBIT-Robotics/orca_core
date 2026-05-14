@@ -78,6 +78,7 @@ class FeetechClient(MotorClient):
         pos_scale: Optional[float] = None,
         vel_scale: Optional[float] = None,
         cur_scale: Optional[float] = None,
+        disabled_motor_ids: Optional[Sequence[int]] = None,
     ):
         """Initializes a new Feetech client.
 
@@ -90,11 +91,17 @@ class FeetechClient(MotorClient):
             pos_scale: The scaling factor for positions (raw to radians).
             vel_scale: The scaling factor for velocities.
             cur_scale: The scaling factor for currents.
+            disabled_motor_ids: Motor IDs kept in the runtime layout but never
+                touched on the Feetech bus.
         """
         self.motor_ids = list(motor_ids)
         self.port_name = port
         self.baudrate = baudrate
         self.lazy_connect = lazy_connect
+        self.disabled_motor_ids = set(int(motor_id) for motor_id in (disabled_motor_ids or ()))
+        self.active_motor_ids = [
+            motor_id for motor_id in self.motor_ids if motor_id not in self.disabled_motor_ids
+        ]
 
         self.pos_scale = pos_scale if pos_scale is not None else DEFAULT_POS_SCALE
         self.vel_scale = vel_scale if vel_scale is not None else DEFAULT_VEL_SCALE
@@ -112,6 +119,13 @@ class FeetechClient(MotorClient):
         self._default_torque = 500  # Torque limit (0-1000), required for motion
 
         self.OPEN_CLIENTS.add(self)
+
+    def _active_ids(self, motor_ids: Sequence[int]) -> list[int]:
+        return [
+            int(motor_id)
+            for motor_id in motor_ids
+            if int(motor_id) not in self.disabled_motor_ids
+        ]
 
     @property
     def is_connected(self) -> bool:
@@ -145,11 +159,14 @@ class FeetechClient(MotorClient):
 
         # Ensure motors are in servo mode (not wheel mode)
         # This prevents issues if motors were left in wheel mode from a previous session
-        for motor_id in self.motor_ids:
+        if self.disabled_motor_ids:
+            logging.warning('Skipping disabled Feetech motor IDs: %s', sorted(self.disabled_motor_ids))
+
+        for motor_id in self.active_motor_ids:
             self.packet_handler.write1ByteTxRx(motor_id, SMS_STS_MODE, 0)
 
-        # Enable torque for all motors
-        self.set_torque_enabled(self.motor_ids, True)
+        # Enable torque for all active motors.
+        self.set_torque_enabled(self.active_motor_ids, True)
 
     def disconnect(self, force: bool = False) -> None:
         """Disconnects from the Feetech motors."""
@@ -191,10 +208,12 @@ class FeetechClient(MotorClient):
         """Sets whether torque is enabled for the motors."""
         self._check_connected()
 
-        remaining_ids = list(motor_ids)
+        remaining_ids = self._active_ids(motor_ids)
         while remaining_ids:
             failed_ids = []
             for motor_id in remaining_ids:
+                if motor_id in self.disabled_motor_ids:
+                    continue
                 result, error = self.packet_handler.write1ByteTxRx(
                     motor_id, SMS_STS_TORQUE_ENABLE, int(enabled)
                 )
@@ -243,10 +262,11 @@ class FeetechClient(MotorClient):
             )
 
         # Disable torque to change mode
-        self.set_torque_enabled(motor_ids, False)
+        active_motor_ids = self._active_ids(motor_ids)
+        self.set_torque_enabled(active_motor_ids, False)
 
-        for motor_id in motor_ids:
-            # Only velocity mode (1) maps to wheel mode; all others use servo mode
+        # Only velocity mode (1) maps to wheel mode; all others use servo mode.
+        for motor_id in active_motor_ids:
             feetech_mode = 1 if mode == 1 else 0
 
             result, error = self.packet_handler.write1ByteTxRx(
@@ -259,7 +279,7 @@ class FeetechClient(MotorClient):
                 )
 
         # Re-enable torque
-        self.set_torque_enabled(motor_ids, True)
+        self.set_torque_enabled(active_motor_ids, True)
 
     def read_pos_vel_cur(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Reads position, velocity, and current for all motors.
@@ -278,6 +298,8 @@ class FeetechClient(MotorClient):
         currents = np.zeros(len(self.motor_ids), dtype=np.float32)
 
         for i, motor_id in enumerate(self.motor_ids):
+            if motor_id in self.disabled_motor_ids:
+                continue
             # Read position
             pos_raw, result, error = self.packet_handler.read2ByteTxRx(
                 motor_id, SMS_STS_PRESENT_POSITION_L
@@ -327,14 +349,19 @@ class FeetechClient(MotorClient):
         temperatures = np.zeros(len(self.motor_ids), dtype=np.float32)
 
         sync_read = GroupSyncRead(self.packet_handler, SMS_STS_PRESENT_TEMPERATURE, 1)
-        for motor_id in self.motor_ids:
+        for motor_id in self.active_motor_ids:
             sync_read.addParam(motor_id)
+
+        if not self.active_motor_ids:
+            return temperatures
 
         if sync_read.txRxPacket() != COMM_SUCCESS:
             logging.warning('Sync temp read failed, falling back to individual reads')
             return self._read_temperature_individual()
 
         for i, motor_id in enumerate(self.motor_ids):
+            if motor_id in self.disabled_motor_ids:
+                continue
             available, _ = sync_read.isAvailable(motor_id, SMS_STS_PRESENT_TEMPERATURE, 1)
             if available:
                 temperatures[i] = float(sync_read.getData(motor_id, SMS_STS_PRESENT_TEMPERATURE, 1))
@@ -347,6 +374,8 @@ class FeetechClient(MotorClient):
         """Per-motor fallback used only when sync temp read fails."""
         temperatures = np.zeros(len(self.motor_ids), dtype=np.float32)
         for i, motor_id in enumerate(self.motor_ids):
+            if motor_id in self.disabled_motor_ids:
+                continue
             temp, result, error = self.packet_handler.read1ByteTxRx(
                 motor_id, SMS_STS_PRESENT_TEMPERATURE
             )
@@ -382,15 +411,18 @@ class FeetechClient(MotorClient):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             sync_read = GroupSyncRead(self.packet_handler, SMS_STS_MOVING, 1)
-            for motor_id in self.motor_ids:
+            for motor_id in self.active_motor_ids:
                 sync_read.addParam(motor_id)
+
+            if not self.active_motor_ids:
+                return True
 
             if sync_read.txRxPacket() != COMM_SUCCESS:
                 time.sleep(poll_interval)
                 continue
 
             all_stopped = True
-            for motor_id in self.motor_ids:
+            for motor_id in self.active_motor_ids:
                 available, _ = sync_read.isAvailable(motor_id, SMS_STS_MOVING, 1)
                 if not available:
                     all_stopped = False
@@ -572,6 +604,14 @@ class FeetechClient(MotorClient):
         if len(motor_ids) != len(positions):
             raise ValueError('motor_ids and positions must have the same length')
 
+        active_commands = [
+            (motor_id, pos_rad)
+            for motor_id, pos_rad in zip(motor_ids, positions)
+            if motor_id not in self.disabled_motor_ids
+        ]
+        if not active_commands:
+            return
+
         speed = speed if speed is not None else self._default_speed
         acc = acc if acc is not None else self._default_acc
         torque = torque if torque is not None else self._default_torque
@@ -579,7 +619,7 @@ class FeetechClient(MotorClient):
         # Clear any existing sync write params
         self.packet_handler.groupSyncWrite.clearParam()
 
-        for motor_id, pos_rad in zip(motor_ids, positions):
+        for motor_id, pos_rad in active_commands:
             pos_raw = self._position_rad_to_raw(pos_rad)
             pos_raw = self._clamp_position(pos_raw)
 
@@ -613,8 +653,11 @@ class FeetechClient(MotorClient):
         # From addr 56 (position) to 70 (current_h) = 15 bytes
         sync_read = GroupSyncRead(self.packet_handler, SMS_STS_PRESENT_POSITION_L, 15)
 
-        for motor_id in self.motor_ids:
+        for motor_id in self.active_motor_ids:
             sync_read.addParam(motor_id)
+
+        if not self.active_motor_ids:
+            return positions, velocities, currents
 
         result = sync_read.txRxPacket()
         if result != COMM_SUCCESS:
@@ -622,6 +665,8 @@ class FeetechClient(MotorClient):
             return self._read_pos_vel_cur_individual()
 
         for i, motor_id in enumerate(self.motor_ids):
+            if motor_id in self.disabled_motor_ids:
+                continue
             available, error = sync_read.isAvailable(
                 motor_id, SMS_STS_PRESENT_POSITION_L, 2
             )
