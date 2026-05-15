@@ -3,7 +3,7 @@ baudrate: 3000000
 port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FTAK89GD-if00-port0 # linux stable by-id, resolved dynamically
 #port: /dev/ttyUSB0 # linux (legacy)
 #port: /dev/tty.usbserial-FT9MISJT # mac
-max_current: 400
+max_current: 250
 type: right
 motor_type: dynamixel
 control_mode: current_based_position
