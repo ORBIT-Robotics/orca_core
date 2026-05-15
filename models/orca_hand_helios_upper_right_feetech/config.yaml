@@ -133,8 +133,8 @@ neutral_position:
   pinky_mcp: -4
   pinky_pip: -2
   wrist: 0
-wrist_calib_current: 950
-calibration_current: 450
+wrist_calib_current: 500
+calibration_current: 250
 calibration_step_size: 0.08
 calibration_step_period: 0.01
 calibration_num_stable: 25
