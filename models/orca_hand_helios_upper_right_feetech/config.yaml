@@ -3,7 +3,7 @@ baudrate: 1000000
 port: /dev/serial/by-id/usb-1a86_USB_Single_Serial_5B79031752-if00 # linux stable by-id, Feetech CH340 adapter
 #port: /dev/ttyUSB0 # linux (legacy)
 #port: /dev/tty.usbserial-FT9MISJT # mac
-max_current: 250
+max_current: 50
 type: right
 motor_type: feetech
 control_mode: current_based_position
@@ -134,7 +134,7 @@ neutral_position:
   pinky_pip: -2
   wrist: 0
 wrist_calib_current: 500
-calibration_current: 250
+calibration_current: 50
 calibration_step_size: 0.08
 calibration_step_period: 0.01
 calibration_num_stable: 25
