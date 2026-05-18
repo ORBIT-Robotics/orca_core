@@ -9,6 +9,8 @@ setup(
         include=["orca_core*", "helios_core*", "hardware*"],
         exclude=["*.tests", "*.tests.*"],
     ),
+    # Dependency ownership lives in the parent ORBIT_Teleop environment files.
+    # Keep this submodule non-standalone so Jetson/offboard deps stay explicit.
     install_requires=[],
     include_package_data=True,
 )

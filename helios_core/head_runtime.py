@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any
 
 import numpy as np
 
-from helios_core.head_config import (
+from helios_core.utils.head_config import (
     DEFAULT_HEAD_ROLE,
     load_head_config,
     parse_motor_ids,
@@ -41,7 +41,7 @@ class HeliosHeadRuntime:
         if not calib_data:
             raise RuntimeError(
                 f"Calibration YAML missing or empty: {calib_path}. "
-                "Run scripts/apps/helios_head_calibrate.py first."
+                "Run orca_core/helios_core/scripts/helios_head_calibrate.py first."
             )
 
         self.model = HeliosHeadCalibrationModel.from_yaml_dict(calib_data, motor_ids=self.motor_ids)

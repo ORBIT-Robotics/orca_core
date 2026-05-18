@@ -15,10 +15,29 @@ except ModuleNotFoundError:
     from _role_cli import add_role_argument, create_hand, print_role_summary, resolve_role
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Move ORCA hand to neutral position.")
     add_role_argument(parser)
-    args = parser.parse_args()
+    parser.add_argument(
+        "--num-steps",
+        type=int,
+        default=25,
+        help="Number of interpolation steps for the neutral move. Default: 25.",
+    )
+    parser.add_argument(
+        "--step-size",
+        type=float,
+        default=0.001,
+        help="Seconds between interpolation steps. Default: 0.001.",
+    )
+    args = parser.parse_args(argv)
+
+    if args.num_steps < 1:
+        print("ERROR: --num-steps must be >= 1")
+        return 2
+    if args.step_size < 0:
+        print("ERROR: --step-size must be >= 0")
+        return 2
 
     try:
         role = resolve_role(args.role)
@@ -32,10 +51,17 @@ def main() -> int:
         print(f"Failed to connect: {message}")
         return 1
 
-    hand.enable_torque()
-    hand.set_neutral_position()
-    hand.disable_torque()
-    hand.disconnect()
+    try:
+        hand.enable_torque()
+        hand.set_neutral_position(num_steps=args.num_steps, step_size=args.step_size)
+    except Exception as exc:
+        print(f"ERROR: {exc}")
+        return 1
+    finally:
+        try:
+            hand.disable_torque()
+        finally:
+            hand.disconnect()
     return 0
 
 

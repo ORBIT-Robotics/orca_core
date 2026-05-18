@@ -9,7 +9,6 @@ from orca_core.utils.yaml_io import read_yaml
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MODEL_DIR = os.path.join(REPO_ROOT, "models", "orca_hand_right")
 REAL_CONFIG = os.path.join(MODEL_DIR, "config.yaml")
-REAL_CALIB = os.path.join(MODEL_DIR, "calibration.yaml")
 TEST_TMP_ROOT = os.path.join(REPO_ROOT, ".tmp_tests")
 
 EXPECTED_LIMITS = [-1.0, 1.0]
@@ -22,7 +21,6 @@ class TestOrcaHandCalibration(unittest.TestCase):
         self.config_path = os.path.join(self.temp_dir, "config.yaml")
         self.calib_path = os.path.join(self.temp_dir, "calibration.yaml")
         shutil.copy(REAL_CONFIG, self.config_path)
-        shutil.copy(REAL_CALIB, self.calib_path)
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
@@ -53,7 +51,6 @@ class TestOrcaHandCalibration(unittest.TestCase):
 
 
     def test_calibration_yaml_missing(self):
-        os.remove(self.calib_path)
         hand = MockOrcaHand(self.temp_dir)
         hand.connect()
     
@@ -65,6 +62,30 @@ class TestOrcaHandCalibration(unittest.TestCase):
         
         self.check_calibrated(hand)
 
+    def test_empty_calibration_yaml_starts_uncalibrated(self):
+        open(self.calib_path, "w", encoding="utf-8").close()
+
+        hand = MockOrcaHand(self.temp_dir)
+
+        self.assertFalse(hand.calibrated)
+        self.assertFalse(hand.wrist_calibrated)
+        self.assertTrue(
+            all(limits == [None, None] for limits in hand.motor_limits_dict.values())
+        )
+        self.assertTrue(
+            all(ratio == 0.0 for ratio in hand.joint_to_motor_ratios_dict.values())
+        )
+
+        hand.connect()
+        hand.calibrate()
+        self.check_calibrated(hand)
+
+    def test_non_mapping_calibration_yaml_fails_clearly(self):
+        with open(self.calib_path, "w", encoding="utf-8") as file:
+            yaml.safe_dump([], file)
+
+        with self.assertRaisesRegex(ValueError, "Calibration YAML must be a mapping"):
+            MockOrcaHand(self.temp_dir)
+
 if __name__ == "__main__":
     unittest.main()
-

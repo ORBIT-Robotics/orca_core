@@ -17,11 +17,19 @@ It now uses folder-aligned namespace packages with explicit imports:
 - Shared hardware drivers: `hardware.*`
 
 ## Installation
-From this directory (`orca_core/`):
+`orca_core` is not installed as a standalone dependency set in this repo. Use the
+parent `ORBIT_Teleop` environment files from the repo root; they install this
+checkout editable only where the runtime needs it:
 
 ```sh
-pip install -e .
+conda env create -f configs/environments/environment_orbit.yml
+conda env create -f configs/environments/environment_control.yml
+conda env create -f configs/environments/environment_vision.yml
 ```
+
+- `orbit`: offboard operator, retargeting/model metadata, dev/API checks.
+- `control`: Jetson ORCA hand + HELIOS head hardware deps.
+- `vision`: Jetson camera runtime only; no ORCA hardware deps.
 
 ## Import Policy
 Always import from the defining module. Do not import through package roots.
@@ -45,7 +53,9 @@ from package_root.utils import helper_fn
 - Right hand: `models/orca_hand_right`
 - Left hand: `models/orca_hand_left`
 - HELIOS head config: `models/helios_head/config.yaml`
-- HELIOS head calibration: `models/helios_head/calibration.yaml`
+- Calibration files: `models/*/calibration.yaml` are device-local and
+  gitignored. Run the hand or head calibration flow on each machine before
+  runtime; generated calibration data should not be committed.
 
 ## ORCA Hand Quick Start
 Run hand tools using explicit module paths:
@@ -54,7 +64,12 @@ Run hand tools using explicit module paths:
 python -m orca_core.scripts.hand_tension --role helios_upper_right
 python -m orca_core.scripts.hand_calibrate --role helios_upper_right
 python -m orca_core.scripts.hand_neutral --role helios_upper_right
+python -m orca_core.scripts.hand_neutral_all --dry-run
+python -m orca_core.scripts.hand_reboot_all --dry-run
 ```
+
+For simultaneous HELIOS hand tensioning, omit `--role` or repeat it for the
+specific hand roles to lock together.
 
 Minimal runtime example:
 

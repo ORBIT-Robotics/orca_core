@@ -1,15 +1,15 @@
 hardware:
-  port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FT9MISJT-if00-port0
+  port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FTAAMLGV-if00-port0
   baudrate: 3000000
   control_mode: current_based_position
   motor_ids:
     yaw: 21
-    upper_left: 22
-    upper_right: 23
+    pitch: 22
+    roll: 23
   startup_current_limit_ma: 300
-  runtime_current_limit_ma: 300
+  runtime_current_limit_ma: 400
   calibration_current_limit_ma: 300
-  runtime_rate_hz: 80.0
+  runtime_rate_hz: 50.0
   command_timeout_sec: 0.75
 
 safety:
@@ -20,13 +20,15 @@ safety:
     roll: 0.55
   # Extra margin from discovered motor limits during runtime clipping.
   motor_limit_margin_rad: 0.02
-  max_abs_motor_step_rad: 0.08
+  max_abs_motor_step_rad: 0.16
 
 mapping:
   # Runtime uses neutral-relative command mapping:
   # m_yaw = m_yaw_0 + k_y * yaw
-  # m_22  = m_22_0 + k_p * pitch + k_r * roll
-  # m_23  = m_23_0 + k_p * pitch - k_r * roll
+  # m_pitch = m_pitch_0 + k_p * pitch
+  # m_roll  = m_roll_0 + k_r * roll
+  # A future rotated-frame mode should be represented explicitly as a 3x3
+  # virtual-to-motor matrix instead of overloading these direct motor axes.
   yaw_sign: 1.0
   pitch_sign: 1.0
   roll_sign: 1.0

@@ -6,6 +6,7 @@ port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_* # linux stable by-id
 max_current: 400
 
 type: dip
+motor_type: dynamixel
 
 # current, velocity, position, multi-turn- position, current_based_position
 control_mode: current_based_position
