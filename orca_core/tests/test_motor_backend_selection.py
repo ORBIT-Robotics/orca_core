@@ -51,30 +51,14 @@ class TestMotorBackendSelection(unittest.TestCase):
                 FeetechClient.__name__,
             )
 
-    def test_upper_left_feetech_hardcodes_problem_motor_ids_disabled(self):
+    def test_upper_left_feetech_has_no_hardcoded_disabled_motor_ids(self):
         hand = OrcaHand(REPO_ROOT / "models" / "orca_hand_helios_upper_left_feetech")
         client = hand._create_motor_client("/dev/null")
         try:
-            self.assertEqual(hand.disabled_motor_ids, {1, 2})
-            self.assertEqual(client.disabled_motor_ids, {1, 2})
-            self.assertNotIn(1, client.active_motor_ids)
-            self.assertNotIn(2, client.active_motor_ids)
-
-            hand._wrap_offsets_dict = None
-            hand.motor_limits_dict = {
-                motor_id: ([0.0, 1.0] if motor_id in {1, 2} else [None, None])
-                for motor_id in hand.motor_ids
-            }
-            hand.get_motor_pos = lambda: np.array(
-                [100.0 if motor_id in {1, 2} else 0.0 for motor_id in hand.motor_ids],
-                dtype=float,
-            )
-            hand._compute_wrap_offsets_dict()
-            self.assertEqual(hand._wrap_offsets_dict[1], 0.0)
-            self.assertEqual(hand._wrap_offsets_dict[2], 0.0)
-            joint_pos = hand._motor_to_joint_pos(np.zeros(len(hand.motor_ids), dtype=float))
-            self.assertEqual(joint_pos["wrist"], hand.neutral_position["wrist"])
-            self.assertEqual(joint_pos["middle_mcp"], hand.neutral_position["middle_mcp"])
+            self.assertEqual(hand.disabled_motor_ids, set())
+            self.assertEqual(client.disabled_motor_ids, set())
+            self.assertIn(1, client.active_motor_ids)
+            self.assertIn(2, client.active_motor_ids)
         finally:
             client.disconnect()
 

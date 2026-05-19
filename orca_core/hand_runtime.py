@@ -29,11 +29,7 @@ from orca_core.utils.yaml_io import get_model_path, read_yaml, update_yaml
 
 SUPPORTED_MOTOR_TYPES = ("dynamixel", "feetech")
 
-_HARDCODED_DISABLED_FEETECH_MOTORS_BY_MODEL = {
-    # Known bad/duplicate upper-left Feetech motors. Keep the ROS hand layout
-    # intact while never touching these IDs on the bus or in wrap-limit checks.
-    "orca_hand_helios_upper_left_feetech": (1, 2),
-}
+_HARDCODED_DISABLED_FEETECH_MOTORS_BY_MODEL = {}
 
 
 def _read_calibration_yaml(calib_path: str) -> dict:
