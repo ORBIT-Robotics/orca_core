@@ -276,7 +276,7 @@ def _run_multi_role(args: argparse.Namespace, specs) -> int:
     return 0 if all(returncode == 0 for returncode in exit_codes.values()) else 1
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run ORCA hand tension routine.")
     parser.add_argument(
         "--role",
@@ -319,7 +319,7 @@ def main() -> int:
         action="store_true",
         help="Print every child process log line to the terminal. Full logs are always written to files.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.stagger_sec < 0:
         print("ERROR: --stagger-sec must be >= 0.", file=sys.stderr)
