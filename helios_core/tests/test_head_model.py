@@ -5,6 +5,7 @@ import numpy as np
 from helios_core.utils.head_config import HeadMotorIDs
 from helios_core.head_model import (
     HeliosHeadCalibrationModel,
+    PITCH_ROLL_COUPLING_COMMON_PITCH_DIFFERENTIAL_ROLL,
     derive_endpoint_joint_to_motor_ratios,
 )
 
@@ -68,6 +69,23 @@ class TestHeliosHeadEndpointModel(unittest.TestCase):
         np.testing.assert_allclose(target, np.array([0.5, 0.4, -0.2], dtype=float))
         np.testing.assert_allclose(state, cmd)
 
+    def test_coupled_pitch_roll_round_trip(self):
+        payload = _calibration_payload()
+        payload["pitch_roll_coupling"] = PITCH_ROLL_COUPLING_COMMON_PITCH_DIFFERENTIAL_ROLL
+        model = HeliosHeadCalibrationModel.from_yaml_dict(payload)
+        cmd = np.array([0.25, 0.2, -0.1], dtype=float)
+
+        target = model.virtual_to_motor_targets(cmd)
+        state = model.motor_to_virtual(target)
+
+        np.testing.assert_allclose(target, np.array([0.5, 0.2, 0.6], dtype=float))
+        np.testing.assert_allclose(state, cmd)
+
+        pitch_only = model.virtual_to_motor_targets(np.array([0.0, 0.2, 0.0], dtype=float))
+        roll_only = model.virtual_to_motor_targets(np.array([0.0, 0.0, 0.2], dtype=float))
+        np.testing.assert_allclose(pitch_only, np.array([0.0, 0.4, 0.4], dtype=float))
+        np.testing.assert_allclose(roll_only, np.array([0.0, 0.4, -0.4], dtype=float))
+
     def test_virtual_and_motor_clipping(self):
         model = HeliosHeadCalibrationModel.from_yaml_dict(_calibration_payload())
 
@@ -113,6 +131,28 @@ class TestHeliosHeadEndpointModel(unittest.TestCase):
         )
 
         self.assertEqual(ratios, {"yaw": 2.0, "pitch": 4.0, "roll": 2.5})
+
+    def test_coupled_endpoint_ratio_derivation_uses_shared_upper_motor_margin(self):
+        ratios = derive_endpoint_joint_to_motor_ratios(
+            motor_limits={
+                "yaw": (-1.0, 2.0),
+                "pitch": (-4.0, 5.0),
+                "roll": (-3.0, 7.0),
+            },
+            neutral_motors={
+                "yaw": 0.0,
+                "pitch": 1.0,
+                "roll": 2.0,
+            },
+            virtual_limits_rad={
+                "yaw": 0.5,
+                "pitch": 1.0,
+                "roll": 2.0,
+            },
+            pitch_roll_coupling=PITCH_ROLL_COUPLING_COMMON_PITCH_DIFFERENTIAL_ROLL,
+        )
+
+        self.assertEqual(ratios, {"yaw": 2.0, "pitch": 4.0, "roll": 2.0})
 
     def test_explicit_motor_ids_override_yaml(self):
         model = HeliosHeadCalibrationModel.from_yaml_dict(

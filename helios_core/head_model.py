@@ -17,6 +17,13 @@ LEGACY_MOTOR_AXIS_ALIASES = {
     "roll": "upper_right",
 }
 
+PITCH_ROLL_COUPLING_DIRECT = "direct"
+PITCH_ROLL_COUPLING_COMMON_PITCH_DIFFERENTIAL_ROLL = "common_pitch_differential_roll"
+SUPPORTED_PITCH_ROLL_COUPLINGS = (
+    PITCH_ROLL_COUPLING_DIRECT,
+    PITCH_ROLL_COUPLING_COMMON_PITCH_DIFFERENTIAL_ROLL,
+)
+
 
 def _as_float(value, name: str) -> float:
     if value is None:
@@ -32,6 +39,16 @@ def _parse_positive_float(value, name: str) -> float:
     if value_f <= 0.0:
         raise ValueError(f"Expected positive calibration value for {name}, got {value_f}")
     return value_f
+
+
+def _parse_pitch_roll_coupling(value) -> str:
+    coupling = str(value or PITCH_ROLL_COUPLING_DIRECT).strip()
+    if coupling not in SUPPORTED_PITCH_ROLL_COUPLINGS:
+        raise ValueError(
+            f"Unsupported pitch_roll_coupling {coupling!r}. "
+            f"Expected one of {SUPPORTED_PITCH_ROLL_COUPLINGS}."
+        )
+    return coupling
 
 
 def _get_axis_value(mapping: Dict, axis: str, label: str):
@@ -66,14 +83,29 @@ def _validate_neutral_inside_limits(
         raise ValueError("Neutral motors must be inside motor limits: " + "; ".join(violations))
 
 
+def _min_motor_margin(
+    motor_limits: Dict[str, tuple[float, float]],
+    neutral_motors: Dict[str, float],
+    axes: tuple[str, ...],
+) -> float:
+    margins = []
+    for axis in axes:
+        lo, hi = motor_limits[axis]
+        neutral = neutral_motors[axis]
+        margins.append(neutral - lo)
+        margins.append(hi - neutral)
+    return float(min(margins))
+
+
 def derive_endpoint_joint_to_motor_ratios(
     motor_limits: Dict[str, tuple[float, float]],
     neutral_motors: Dict[str, float],
     virtual_limits_rad: Dict[str, float],
     *,
     min_ratio: float = 1e-6,
+    pitch_roll_coupling: str = PITCH_ROLL_COUPLING_DIRECT,
 ) -> Dict[str, float]:
-    """Derive direct motor-per-virtual-radian ratios from endpoint margins."""
+    """Derive motor-per-virtual-radian ratios from endpoint margins."""
 
     _validate_motor_limits(motor_limits)
     _validate_neutral_inside_limits(motor_limits, neutral_motors)
@@ -84,11 +116,16 @@ def derive_endpoint_joint_to_motor_ratios(
     }
 
     ratios = {}
-    for axis in VIRTUAL_AXES:
-        lo, hi = motor_limits[axis]
-        neutral = neutral_motors[axis]
-        margin = min(neutral - lo, hi - neutral)
-        ratios[axis] = margin / limits[axis]
+    ratios["yaw"] = _min_motor_margin(motor_limits, neutral_motors, ("yaw",)) / limits["yaw"]
+
+    coupling = _parse_pitch_roll_coupling(pitch_roll_coupling)
+    if coupling == PITCH_ROLL_COUPLING_DIRECT:
+        ratios["pitch"] = _min_motor_margin(motor_limits, neutral_motors, ("pitch",)) / limits["pitch"]
+        ratios["roll"] = _min_motor_margin(motor_limits, neutral_motors, ("roll",)) / limits["roll"]
+    else:
+        upper_margin = _min_motor_margin(motor_limits, neutral_motors, ("pitch", "roll"))
+        ratios["pitch"] = upper_margin / limits["pitch"]
+        ratios["roll"] = upper_margin / limits["roll"]
 
     min_ratio_f = max(0.0, float(min_ratio))
     for axis, value in ratios.items():
@@ -108,6 +145,10 @@ class HeliosHeadCalibrationModel:
     joint_to_motor_ratios: Dict[str, float]
     signs: Dict[str, float]
     virtual_limits_rad: Dict[str, float]
+    pitch_roll_coupling: str = PITCH_ROLL_COUPLING_DIRECT
+
+    def __post_init__(self) -> None:
+        self.pitch_roll_coupling = _parse_pitch_roll_coupling(self.pitch_roll_coupling)
 
     @classmethod
     def from_yaml_dict(cls, data: Dict, motor_ids: Optional[HeadMotorIDs] = None):
@@ -163,6 +204,11 @@ class HeliosHeadCalibrationModel:
             for axis in VIRTUAL_AXES
         }
 
+        raw_mapping = dict(data.get("mapping", {}))
+        pitch_roll_coupling = _parse_pitch_roll_coupling(
+            data.get("pitch_roll_coupling", raw_mapping.get("pitch_roll_coupling"))
+        )
+
         raw_signs = dict(data.get("signs", {}))
         signs = {
             "yaw_sign": _as_float(raw_signs.get("yaw_sign", 1.0), "signs.yaw_sign"),
@@ -180,6 +226,7 @@ class HeliosHeadCalibrationModel:
             joint_to_motor_ratios=ratios,
             signs=signs,
             virtual_limits_rad=virtual_limits,
+            pitch_roll_coupling=pitch_roll_coupling,
         )
 
     def clip_virtual(self, virtual_cmd: np.ndarray) -> np.ndarray:
@@ -202,22 +249,59 @@ class HeliosHeadCalibrationModel:
         return clipped
 
     def virtual_to_motor_targets(self, virtual_cmd: np.ndarray) -> np.ndarray:
+        """Map [yaw, pitch, roll] virtual commands to [yaw, upper_left, upper_right] motors."""
         cmd = self.clip_virtual(virtual_cmd)
         targets = np.zeros(3, dtype=float)
-        for idx, axis in enumerate(VIRTUAL_AXES):
-            sign = self.signs[f"{axis}_sign"]
-            ratio = self.joint_to_motor_ratios[axis]
-            targets[idx] = self.neutral_motors[axis] + ratio * sign * cmd[idx]
+        targets[0] = (
+            self.neutral_motors["yaw"]
+            + self.joint_to_motor_ratios["yaw"] * self.signs["yaw_sign"] * cmd[0]
+        )
+        pitch_delta = self.joint_to_motor_ratios["pitch"] * self.signs["pitch_sign"] * cmd[1]
+        roll_delta = self.joint_to_motor_ratios["roll"] * self.signs["roll_sign"] * cmd[2]
+
+        if self.pitch_roll_coupling == PITCH_ROLL_COUPLING_DIRECT:
+            targets[1] = self.neutral_motors["pitch"] + pitch_delta
+            targets[2] = self.neutral_motors["roll"] + roll_delta
+        else:
+            targets[1] = self.neutral_motors["pitch"] + pitch_delta + roll_delta
+            targets[2] = self.neutral_motors["roll"] + pitch_delta - roll_delta
         return targets
 
     def motor_to_virtual(self, motor_positions: np.ndarray) -> np.ndarray:
         motor = np.asarray(motor_positions, dtype=float).reshape(3,)
         virtual = np.zeros(3, dtype=float)
-        for idx, axis in enumerate(VIRTUAL_AXES):
-            ratio = self.joint_to_motor_ratios[axis]
-            sign = self.signs[f"{axis}_sign"]
-            motor_delta = motor[idx] - self.neutral_motors[axis]
-            virtual[idx] = motor_delta / ratio / sign
+        virtual[0] = (
+            (motor[0] - self.neutral_motors["yaw"])
+            / self.joint_to_motor_ratios["yaw"]
+            / self.signs["yaw_sign"]
+        )
+
+        pitch_motor_delta = motor[1] - self.neutral_motors["pitch"]
+        roll_motor_delta = motor[2] - self.neutral_motors["roll"]
+        if self.pitch_roll_coupling == PITCH_ROLL_COUPLING_DIRECT:
+            virtual[1] = (
+                pitch_motor_delta
+                / self.joint_to_motor_ratios["pitch"]
+                / self.signs["pitch_sign"]
+            )
+            virtual[2] = (
+                roll_motor_delta
+                / self.joint_to_motor_ratios["roll"]
+                / self.signs["roll_sign"]
+            )
+        else:
+            virtual[1] = (
+                0.5
+                * (pitch_motor_delta + roll_motor_delta)
+                / self.joint_to_motor_ratios["pitch"]
+                / self.signs["pitch_sign"]
+            )
+            virtual[2] = (
+                0.5
+                * (pitch_motor_delta - roll_motor_delta)
+                / self.joint_to_motor_ratios["roll"]
+                / self.signs["roll_sign"]
+            )
         return self.clip_virtual(virtual)
 
     def motor_limits_for_hardware(self) -> Dict[str, tuple[float, float]]:

@@ -23,15 +23,15 @@ safety:
   max_abs_motor_step_rad: 0.16
 
 mapping:
-  # Runtime uses neutral-relative command mapping:
+  # Runtime uses neutral-relative command mapping. Yaw is direct; pitch/roll are
+  # coupled through the two upper motors:
   # m_yaw = m_yaw_0 + k_y * yaw
-  # m_pitch = m_pitch_0 + k_p * pitch
-  # m_roll  = m_roll_0 + k_r * roll
-  # A future rotated-frame mode should be represented explicitly as a 3x3
-  # virtual-to-motor matrix instead of overloading these direct motor axes.
-  yaw_sign: 1.0
-  pitch_sign: 1.0
-  roll_sign: 1.0
+  # m_pitch = m_pitch_0 + k_p * pitch + k_r * roll
+  # m_roll  = m_roll_0  + k_p * pitch - k_r * roll
+  pitch_roll_coupling: common_pitch_differential_roll
+  yaw_sign: -1.0
+  pitch_sign: -1.0
+  roll_sign: -1.0
 
 calibration:
   output_path: orca_core/models/helios_head/calibration.yaml

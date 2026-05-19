@@ -39,7 +39,7 @@ class LimitSearchResult:
 
 
 class HeliosHeadCalibrator:
-    """Field-oriented endpoint calibration for the HELIOS direct yaw/pitch/roll head."""
+    """Field-oriented endpoint calibration for the HELIOS yaw plus coupled pitch/roll head."""
 
     def __init__(self, config_path: Optional[str] = None, role: Optional[str] = DEFAULT_HEAD_ROLE):
         config, cfg_path = load_head_config(config_path, role=role)
@@ -54,6 +54,8 @@ class HeliosHeadCalibrator:
 
         self.motor_limits: Dict[str, tuple[float, float]] = {}
         self.neutral_motors: Optional[Dict[str, float]] = None
+        mapping_cfg = dict(self.config.get("mapping", {}))
+        self.pitch_roll_coupling = str(mapping_cfg.get("pitch_roll_coupling", "direct"))
         self.endpoint_ratios: Optional[Dict[str, float]] = None
         self._latest_model: Optional[HeliosHeadCalibrationModel] = None
 
@@ -356,6 +358,7 @@ class HeliosHeadCalibrator:
             self.neutral_motors,
             virtual_limits,
             min_ratio=float(calibration_cfg.get("endpoint_min_ratio", 1e-6)),
+            pitch_roll_coupling=self.pitch_roll_coupling,
         )
         self._latest_model = HeliosHeadCalibrationModel(
             motor_ids=self.motor_ids,
@@ -364,6 +367,7 @@ class HeliosHeadCalibrator:
             joint_to_motor_ratios=self.endpoint_ratios,
             signs=self._signs_from_config(),
             virtual_limits_rad=virtual_limits,
+            pitch_roll_coupling=self.pitch_roll_coupling,
         )
         print(
             "[helios_head] endpoint ratios: "
@@ -380,6 +384,7 @@ class HeliosHeadCalibrator:
             "version": 2,
             "calibrated": True,
             "updated_at": utc_now_iso(),
+            "pitch_roll_coupling": model.pitch_roll_coupling,
             "hardware": {
                 "motor_ids": self.motor_ids.as_dict,
             },
