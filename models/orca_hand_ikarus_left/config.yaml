@@ -43,23 +43,23 @@ joint_ids:
 - pinky_pip
 - wrist
 joint_to_motor_map:
-  thumb_mcp: -10
-  thumb_abd: -13
-  thumb_pip: -12
-  thumb_dip: -11
-  index_abd: -7
-  index_mcp: -8
-  index_pip: -9
-  middle_abd: -6
-  middle_mcp: -17
-  middle_pip: -2
-  ring_abd: -5
-  ring_mcp: 4
-  ring_pip: -3
-  pinky_abd: 14
-  pinky_mcp: -15
-  pinky_pip: 16
-  wrist: -1
+  thumb_mcp: 13
+  thumb_abd: 14
+  thumb_pip: 16
+  thumb_dip: 15
+  index_abd: -3
+  index_mcp: 2
+  index_pip: 1
+  middle_abd: 4
+  middle_mcp: 9
+  middle_pip: 8
+  ring_abd: -12
+  ring_mcp: 10
+  ring_pip: 11
+  pinky_abd: -5
+  pinky_mcp: 7
+  pinky_pip: 6
+  wrist: -17
 joint_roms:
   thumb_mcp:
   - -50
@@ -136,93 +136,70 @@ calib_step_period: 0.001
 calib_num_stable: 10
 calib_threshold: 0.01
 calib_sequence:
-- step: 1
-  joints:
-    thumb_mcp: flex
-- step: 2
-  joints:
-    thumb_mcp: extend
-- step: 3
-  joints:
-    thumb_abd: flex
-- step: 4
-  joints:
-    thumb_abd: extend
-- step: 5
-  joints:
-    thumb_pip: flex
-- step: 6
-  joints:
-    thumb_pip: extend
-- step: 7
-  joints:
-    thumb_dip: flex
-- step: 8
-  joints:
-    thumb_dip: extend
-- step: 9
-  joints:
-    index_abd: flex
-    middle_abd: flex
-    ring_abd: flex
-    pinky_abd: flex
-- step: 10
-  joints:
-    index_abd: extend
-    middle_abd: extend
-    ring_abd: extend
-    pinky_abd: extend
-- step: 11
-  joints:
-    index_mcp: flex
-- step: 12
-  joints:
-    index_mcp: extend
-- step: 13
-  joints:
-    index_pip: flex
-- step: 14
-  joints:
-    index_pip: extend
-- step: 15
-  joints:
-    middle_mcp: flex
-- step: 16
-  joints:
-    middle_mcp: extend
-- step: 17
-  joints:
-    middle_pip: flex
-- step: 18
-  joints:
-    middle_pip: extend
-- step: 19
-  joints:
-    ring_mcp: flex
-- step: 20
-  joints:
-    ring_mcp: extend
-- step: 21
-  joints:
-    ring_pip: flex
-- step: 22
-  joints:
-    ring_pip: extend
-- step: 23
-  joints:
-    pinky_mcp: flex
-- step: 24
-  joints:
-    pinky_mcp: extend
-- step: 25
-  joints:
-    pinky_pip: flex
-- step: 26
-  joints:
-    pinky_pip: extend
-- step: 27
-  joints:
-    wrist: flex
-- step: 28
-  joints:
-    wrist: extend
+  - step: 1
+    joints:
+      thumb_mcp: flex
+  - step: 2
+    joints:
+      thumb_mcp: extend
+  - step: 3
+    joints:
+      thumb_abd: flex
+  - step: 4
+    joints:
+      thumb_abd: extend
+  - step: 5
+    joints:
+      thumb_pip: flex
+  - step: 6
+    joints:
+      thumb_pip: extend
+  - step: 7
+    joints:
+      thumb_dip: flex
+  - step: 8
+    joints:
+      thumb_dip: extend
+  - step: 9
+    joints:
+      index_abd: flex
+      middle_abd: flex
+      ring_abd: flex
+      pinky_abd: flex
+  - step: 10
+    joints:
+      index_abd: extend
+      middle_abd: extend
+      ring_abd: extend
+      pinky_abd: extend
+  - step: 11
+    joints:
+      index_mcp: flex
+      middle_mcp: flex
+      ring_mcp: flex
+      pinky_mcp: flex
+  - step: 12
+    joints:
+      index_mcp: extend
+      middle_mcp: extend
+      ring_mcp: extend
+      pinky_mcp: extend
+  - step: 13
+    joints:
+      index_pip: flex
+      middle_pip: flex
+      ring_pip: flex
+      pinky_pip: flex
+  - step: 14
+    joints:
+      index_pip: extend
+      middle_pip: extend
+      ring_pip: extend
+      pinky_pip: extend
+  - step: 15
+    joints:
+      wrist: flex
+  - step: 16
+    joints:
+      wrist: extend
+
