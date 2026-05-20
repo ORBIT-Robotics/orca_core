@@ -37,6 +37,16 @@ class TestDynamixelPreflightScripts(unittest.TestCase):
         self.assertEqual(result, 0)
         preflight.assert_not_called()
 
+    def test_role_motor_ids_excludes_disabled_ids(self):
+        spec = mock.Mock(role="helios_lower_right")
+
+        with mock.patch.object(
+            _dynamixel_preflight,
+            "_load_model_config",
+            return_value={"motor_ids": [1, 2, 8, 9], "disabled_motor_ids": [8]},
+        ):
+            self.assertEqual(_dynamixel_preflight._role_motor_ids(spec), [1, 2, 9])
+
     def test_preflight_reboots_only_bad_dynamixel_ids(self):
         spec = mock.Mock(role="helios_lower_left")
         report = _dynamixel_preflight.DynamixelRoleStatusReport(

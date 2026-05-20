@@ -107,6 +107,9 @@ class OrcaHand:
             )
             if int(motor_id) in self.motor_ids
         }
+        self.active_motor_ids: List[int] = [
+            motor_id for motor_id in self.motor_ids if motor_id not in self.disabled_motor_ids
+        ]
         self.motor_id_to_idx_dict: Dict[int, int] = {motor_id: i for i, motor_id in enumerate(self.motor_ids)}
 
         motor_limits_from_calib_dict = calib.get('motor_limits', {})
@@ -227,7 +230,28 @@ class OrcaHand:
                 self.baudrate,
                 disabled_motor_ids=sorted(self.disabled_motor_ids),
             )
-        return motor_client_class(self.motor_ids, port, self.baudrate)
+        return motor_client_class(self.active_motor_ids, port, self.baudrate)
+
+    def _enabled_motor_ids(self, motor_ids: List[int] = None) -> List[int]:
+        if motor_ids is None:
+            return list(self.active_motor_ids)
+        if not all(motor_id in self.motor_ids for motor_id in motor_ids):
+            raise ValueError("Invalid motor IDs.")
+        return [motor_id for motor_id in motor_ids if motor_id not in self.disabled_motor_ids]
+
+    def _expand_active_motor_values(self, values: np.ndarray) -> np.ndarray:
+        arr = np.asarray(values)
+        if len(arr) == len(self.motor_ids):
+            return arr
+        if len(arr) != len(self.active_motor_ids):
+            raise ValueError(
+                f"Motor client returned {len(arr)} values, expected "
+                f"{len(self.active_motor_ids)} active or {len(self.motor_ids)} configured motors."
+            )
+        expanded = np.zeros(len(self.motor_ids), dtype=arr.dtype)
+        for active_index, motor_id in enumerate(self.active_motor_ids):
+            expanded[self.motor_id_to_idx_dict[motor_id]] = arr[active_index]
+        return expanded
 
     def _client_is_connected(self) -> bool:
         if self._motor_client is None:
@@ -302,7 +326,11 @@ class OrcaHand:
             motor_ids (list): List of motor IDs to enable the torque. If None, all motors will be enabled
         """
         if motor_ids is None:
-            motor_ids = self.motor_ids
+            motor_ids = self.active_motor_ids
+        else:
+            motor_ids = self._enabled_motor_ids(motor_ids)
+        if not motor_ids:
+            return
         with self._motor_lock:
             self._motor_client.set_torque_enabled(motor_ids, True)
 
@@ -314,6 +342,8 @@ class OrcaHand:
         """
         if motor_ids is None:
             motor_ids = self.motor_ids
+        elif not all(motor_id in self.motor_ids for motor_id in motor_ids):
+            raise ValueError("Invalid motor IDs.")
         with self._motor_lock:
             self._motor_client.set_torque_enabled(motor_ids, False)
     
@@ -326,11 +356,21 @@ class OrcaHand:
         if isinstance(current, list):
             if len(current) != len(self.motor_ids):
                 raise ValueError("Number of currents do not match the number of motors.")
+            motor_ids = self.active_motor_ids
+            currents = np.array(
+                [current[self.motor_id_to_idx_dict[motor_id]] for motor_id in motor_ids],
+                dtype=float,
+            )
+            if not motor_ids:
+                return
             with self._motor_lock:
-                self._motor_client.write_desired_current(self.motor_ids, current)
+                self._motor_client.write_desired_current(motor_ids, currents)
         else:
+            motor_ids = self.active_motor_ids
+            if not motor_ids:
+                return
             with self._motor_lock:
-                self._motor_client.write_desired_current(self.motor_ids, current*np.ones(len(self.motor_ids)))
+                self._motor_client.write_desired_current(motor_ids, current*np.ones(len(motor_ids)))
         
     def set_control_mode(self, mode: str, motor_ids: List[int] = None):
         """Set the control mode for the motors.
@@ -359,10 +399,11 @@ class OrcaHand:
         
         with self._motor_lock:
             if motor_ids is None:
-                motor_ids = self.motor_ids
+                motor_ids = self.active_motor_ids
             else:
-                if not all(motor_id in self.motor_ids for motor_id in motor_ids):
-                    raise ValueError("Invalid motor IDs.")
+                motor_ids = self._enabled_motor_ids(motor_ids)
+            if not motor_ids:
+                return
             self._motor_client.set_operating_mode(motor_ids, mode)
             
     def get_motor_pos(self, as_dict: bool = False) -> Union[np.ndarray, dict]:
@@ -376,7 +417,7 @@ class OrcaHand:
             Union[np.ndarray, dict]: Motor positions either as numpy array or dictionary {motor_id: position}.
         """
         with self._motor_lock:
-            motor_pos = self._motor_client.read_pos_vel_cur()[0]
+            motor_pos = self._expand_active_motor_values(self._motor_client.read_pos_vel_cur()[0])
             if as_dict:
                 return {motor_id: pos for motor_id, pos in zip(self.motor_ids, motor_pos)}
             return motor_pos
@@ -392,7 +433,7 @@ class OrcaHand:
             Union[np.ndarray, dict]: Motor currents either as numpy array or dictionary {motor_id: current}.
         """
         with self._motor_lock:
-            motor_current = self._motor_client.read_pos_vel_cur()[2]
+            motor_current = self._expand_active_motor_values(self._motor_client.read_pos_vel_cur()[2])
             if as_dict:
                 return {motor_id: current for motor_id, current in zip(self.motor_ids, motor_current)}
             return motor_current
@@ -408,7 +449,7 @@ class OrcaHand:
             Union[np.ndarray, dict]: Motor temperatures either as numpy array or dictionary {motor_id: temperature}.
         """
         with self._motor_lock:
-            motor_temp = self._motor_client.read_temperature()
+            motor_temp = self._expand_active_motor_values(self._motor_client.read_temperature())
             if as_dict:
                 return {motor_id: temp for motor_id, temp in zip(self.motor_ids, motor_temp)}
             return motor_temp

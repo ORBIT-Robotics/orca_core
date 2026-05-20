@@ -98,7 +98,13 @@ def _role_motor_ids(spec) -> list[int]:
         raise ValueError(
             f"{spec.role} model config must define a non-empty motor_ids list."
         )
-    return [int(motor_id) for motor_id in motor_ids]
+    disabled_motor_ids = config.get("disabled_motor_ids", [])
+    if disabled_motor_ids is None:
+        disabled_motor_ids = []
+    if not isinstance(disabled_motor_ids, list):
+        raise ValueError(f"{spec.role} disabled_motor_ids must be a list when provided.")
+    disabled_set = {int(motor_id) for motor_id in disabled_motor_ids}
+    return [int(motor_id) for motor_id in motor_ids if int(motor_id) not in disabled_set]
 
 
 def _normalize_motor_ids(spec, motor_ids: Sequence[int] | None) -> list[int]:
