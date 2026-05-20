@@ -9,11 +9,12 @@ try:
     from orca_core.scripts._role_cli import (
         add_role_argument,
         create_hand,
+        connect_hand_with_dynamixel_preflight,
         print_role_summary,
         resolve_role,
     )
 except ModuleNotFoundError:
-    from _role_cli import add_role_argument, create_hand, print_role_summary, resolve_role
+    from _role_cli import add_role_argument, connect_hand_with_dynamixel_preflight, create_hand, print_role_summary, resolve_role
 
 
 def main() -> int:
@@ -28,7 +29,7 @@ def main() -> int:
         return 1
     print_role_summary(role)
     hand = create_hand(role)
-    success, message = hand.connect()
+    success, message = connect_hand_with_dynamixel_preflight(role, hand)
     print((success, message))
     if not success:
         return 1

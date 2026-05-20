@@ -34,6 +34,11 @@ class TestHandNeutralScripts(unittest.TestCase):
             mock.patch.object(hand_neutral, "resolve_role", return_value=object()),
             mock.patch.object(hand_neutral, "print_role_summary"),
             mock.patch.object(hand_neutral, "create_hand", return_value=fake_hand),
+            mock.patch.object(
+                hand_neutral,
+                "connect_hand_with_dynamixel_preflight",
+                side_effect=lambda _role, hand: hand.connect(),
+            ),
         ):
             result = hand_neutral.main(
                 [

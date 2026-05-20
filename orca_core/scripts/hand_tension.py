@@ -15,6 +15,7 @@ from pathlib import Path
 try:
     from orca_core.scripts._role_cli import (
         create_hand,
+        connect_hand_with_dynamixel_preflight,
         print_role_summary,
         resolve_role,
     )
@@ -25,7 +26,12 @@ except ModuleNotFoundError:
         sys.path.insert(0, str(ORCA_CORE_ROOT))
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
-    from orca_core.scripts._role_cli import create_hand, print_role_summary, resolve_role
+    from orca_core.scripts._role_cli import (
+        connect_hand_with_dynamixel_preflight,
+        create_hand,
+        print_role_summary,
+        resolve_role,
+    )
 
 
 DEFAULT_ROLES = (
@@ -144,7 +150,7 @@ def _validate_roles(role_names: list[str]):
 def _run_single_role(spec, move_motors: bool) -> int:
     print_role_summary(spec)
     hand = create_hand(spec)
-    success, message = hand.connect()
+    success, message = connect_hand_with_dynamixel_preflight(spec, hand)
     print((success, message))
     if not success:
         return 1

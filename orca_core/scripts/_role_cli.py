@@ -12,6 +12,12 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from orca_core.hand_runtime import OrcaHand  # noqa: E402
+from orca_core.scripts._dynamixel_preflight import (  # noqa: E402
+    _role_motor_type,
+    check_dynamixel_role_status,
+    preflight_dynamixel_role,
+    print_dynamixel_report_errors,
+)
 from orca_core.utils.yaml_io import read_yaml  # noqa: E402
 from openteach.helpers.orca_hand_roles import OrcaHandRoleSpec, load_orca_hand_role  # noqa: E402
 
@@ -51,3 +57,29 @@ def create_hand(spec: OrcaHandRoleSpec) -> OrcaHand:
     hand.port = spec.port
     hand.baudrate = spec.baudrate
     return hand
+
+def connect_hand_with_dynamixel_preflight(
+    spec: OrcaHandRoleSpec,
+    hand: OrcaHand,
+) -> tuple[bool, str]:
+    motor_type = _role_motor_type(spec)
+    if motor_type == "dynamixel" and not preflight_dynamixel_role(spec):
+        return (
+            False,
+            f"Dynamixel preflight failed for role {spec.role}; "
+            "see Hardware Error Status(70), comm_result, dxl_error, port, and baudrate above.",
+        )
+
+    success, message = hand.connect()
+    if success or motor_type != "dynamixel":
+        return success, message
+
+    print(
+        f"[{spec.role}] ERROR: connection failed after Dynamixel preflight: {message}",
+        file=sys.stderr,
+    )
+    report = check_dynamixel_role_status(spec)
+    if not report.ok:
+        print_dynamixel_report_errors(report)
+    return success, message
+
