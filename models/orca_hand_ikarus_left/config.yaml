@@ -47,19 +47,19 @@ joint_to_motor_map:
   thumb_abd: 14
   thumb_pip: 16
   thumb_dip: 15
-  index_abd: 3
+  index_abd: -3
   index_mcp: 2
   index_pip: 1
-  middle_abd: 4
+  middle_abd: -4
   middle_mcp: 9
   middle_pip: 8
-  ring_abd: -12
+  ring_abd: 12
   ring_mcp: 10
   ring_pip: 11
-  pinky_abd: 5
+  pinky_abd: -5
   pinky_mcp: 7
   pinky_pip: 6
-  wrist: -17
+  wrist: 17
 joint_roms:
   thumb_mcp:
   - -50
