@@ -7,9 +7,7 @@ max_current: 500
 type: right
 motor_type: dynamixel
 control_mode: current_based_position
-disabled_motor_ids:
-- 8
-- 5
+disabled_motor_ids: []
 motor_ids:
 - 1
 - 2
