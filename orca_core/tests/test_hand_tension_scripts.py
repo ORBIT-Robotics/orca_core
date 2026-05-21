@@ -6,7 +6,7 @@ from orca_core.scripts import hand_tension, hand_tension_all
 
 class TestHandTensionScripts(unittest.TestCase):
     def test_all_hands_wrapper_delegates_to_tension_main(self):
-        argv = ["--dry-run", "--yes"]
+        argv = ["--dry-run"]
 
         with mock.patch.object(hand_tension, "main", return_value=0) as tension_main:
             result = hand_tension_all.main(argv)
