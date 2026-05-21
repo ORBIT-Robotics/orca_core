@@ -145,11 +145,6 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Resolve roles and print commands without connecting to hardware.",
     )
-    parser.add_argument(
-        "--yes",
-        action="store_true",
-        help="Skip the interactive confirmation prompt.",
-    )
     args = parser.parse_args(argv)
 
     if args.num_steps < 1:
@@ -184,15 +179,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         return 0
-
-    if not args.yes:
-        confirmation = input(
-            "This will torque-enable, move, torque-disable, and disconnect all listed hands. "
-            "Type NEUTRAL ALL to continue: "
-        )
-        if confirmation != "NEUTRAL ALL":
-            print("Aborted.")
-            return 130
 
     log_dir = args.log_dir or _default_log_dir()
     log_dir.mkdir(parents=True, exist_ok=True)

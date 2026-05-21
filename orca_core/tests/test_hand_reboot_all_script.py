@@ -21,7 +21,7 @@ class TestHandRebootAllScript(unittest.TestCase):
         self.assertEqual(result, 0)
         reboot.assert_not_called()
 
-    def test_yes_runs_shared_dynamixel_reboot_logic(self):
+    def test_runs_shared_dynamixel_reboot_logic_without_confirmation(self):
         spec = mock.Mock()
         spec.role = "helios_lower_left"
 
@@ -31,11 +31,13 @@ class TestHandRebootAllScript(unittest.TestCase):
             mock.patch.object(hand_reboot_all, "_role_motor_type", return_value="dynamixel"),
             mock.patch.object(hand_reboot_all, "_role_motor_ids", return_value=[1, 2]),
             mock.patch.object(hand_reboot_all, "_reboot_dynamixel_roles", return_value=True) as reboot,
+            mock.patch("builtins.input") as input_mock,
         ):
-            result = hand_reboot_all.main(["--role", spec.role, "--yes"])
+            result = hand_reboot_all.main(["--role", spec.role])
 
         self.assertEqual(result, 0)
         reboot.assert_called_once_with([spec])
+        input_mock.assert_not_called()
 
 
 if __name__ == "__main__":

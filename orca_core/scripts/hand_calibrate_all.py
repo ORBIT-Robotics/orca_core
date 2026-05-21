@@ -194,11 +194,6 @@ def main() -> int:
         help="Resolve roles and print commands without connecting to hardware.",
     )
     parser.add_argument(
-        "--yes",
-        action="store_true",
-        help="Skip the interactive confirmation prompt.",
-    )
-    parser.add_argument(
         "--verbose-child-logs",
         action="store_true",
         help="Print every child process log line to the terminal. Full logs are always written to files.",
@@ -237,16 +232,6 @@ def main() -> int:
 
     if args.dry_run:
         return 0
-
-    if not args.yes:
-        action = "reboot Dynamixel motors and calibrate" if args.reboot else "calibrate"
-        confirmation = input(
-            f"This will {action} all listed hands. "
-            "Type CALIBRATE ALL to continue: "
-        )
-        if confirmation != "CALIBRATE ALL":
-            print("Aborted.")
-            return 130
 
     if args.reboot and not _reboot_dynamixel_roles(specs):
         print("ERROR: Dynamixel reboot preflight failed. Aborting calibration.", file=sys.stderr)

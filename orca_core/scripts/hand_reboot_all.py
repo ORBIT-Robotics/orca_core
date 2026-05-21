@@ -66,11 +66,6 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Resolve roles and print the reboot plan without connecting to hardware.",
     )
-    parser.add_argument(
-        "--yes",
-        action="store_true",
-        help="Skip the interactive confirmation prompt.",
-    )
     args = parser.parse_args(argv)
 
     role_names = args.roles or list(DEFAULT_ROLES)
@@ -87,15 +82,6 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         return 0
-
-    if not args.yes:
-        confirmation = input(
-            "This will reboot every selected Dynamixel hand motor. "
-            "Type REBOOT ALL to continue: "
-        )
-        if confirmation != "REBOOT ALL":
-            print("Aborted.")
-            return 130
 
     return 0 if _reboot_dynamixel_roles(specs) else 1
 

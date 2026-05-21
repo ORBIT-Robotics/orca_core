@@ -183,15 +183,6 @@ def _run_multi_role(args: argparse.Namespace, specs) -> int:
     if args.dry_run:
         return 0
 
-    if not args.yes:
-        confirmation = input(
-            "This will lock all listed hands for manual tensioning. "
-            "Type TENSION ALL to continue: "
-        )
-        if confirmation != "TENSION ALL":
-            print("Aborted.")
-            return 130
-
     log_dir = args.log_dir or _default_log_dir()
     log_dir.mkdir(parents=True, exist_ok=True)
     print(f"Writing logs to: {log_dir}")
@@ -314,11 +305,6 @@ def main(argv: list[str] | None = None) -> int:
         "--dry-run",
         action="store_true",
         help="Resolve roles and print commands without connecting to hardware.",
-    )
-    parser.add_argument(
-        "--yes",
-        action="store_true",
-        help="Skip the multi-role confirmation prompt.",
     )
     parser.add_argument(
         "--verbose-child-logs",
