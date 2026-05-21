@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
-import time
 
 orca_core_root = Path(__file__).resolve().parents[2]
 if str(orca_core_root) not in sys.path:
@@ -34,31 +33,14 @@ def _parse_args() -> argparse.Namespace:
         default="full",
         help="Calibration stage to run",
     )
-    parser.add_argument(
-        "--yes",
-        action="store_true",
-        help="Run non-interactively (skip prompt pauses).",
-    )
     return parser.parse_args()
 
 
-def _pause(msg: str, auto_yes: bool) -> None:
-    if auto_yes:
-        print(f"[helios_head] {msg}")
-        return
+def _pause(msg: str) -> None:
     input(f"{msg} Press Enter to continue...")
 
 
-def _hold_until_interrupt(msg: str, auto_yes: bool) -> None:
-    if auto_yes:
-        print(f"[helios_head] {msg} Press Ctrl+C when finished.")
-        try:
-            while True:
-                time.sleep(0.5)
-        except KeyboardInterrupt:
-            print("\n[helios_head] Exiting tension hold.")
-        return
-
+def _hold_until_interrupt(msg: str) -> None:
     try:
         input(f"{msg} Press Enter when finished or Ctrl+C to abort...")
     except KeyboardInterrupt:
@@ -147,14 +129,12 @@ def main() -> None:
             _save_partial(cal)
             _hold_until_interrupt(
                 "Head is holding current motor positions for manual inspection.",
-                args.yes,
             )
             return
 
         if args.stage == "limits":
             _pause(
                 "Make sure the head is mechanically safe, centered, and away from end stops.",
-                args.yes,
             )
             cal.find_motor_limits()
             _save_partial(cal)
@@ -163,7 +143,7 @@ def main() -> None:
         if args.stage == "neutral":
             _load_partial_into_calibrator(cal)
             cal.release_for_manual_neutral()
-            _pause("Position the head at neutral.", args.yes)
+            _pause("Position the head at neutral.")
             cal.prepare_capture_neutral()
             cal.capture_neutral()
             _save_partial(cal)
@@ -180,25 +160,22 @@ def main() -> None:
 
         _pause(
             "Step 1/4: Ensure power is on, communication is healthy, and the head mount is mechanically safe.",
-            args.yes,
         )
         cal.tension_assist()
 
         _pause(
             "Step 2/4: Confirm the mount is mechanically safe and the head is centered.",
-            args.yes,
         )
         cal.find_motor_limits()
 
         cal.release_for_manual_neutral()
         _pause(
             "Step 3/4: Adjust the head freely to neutral, then continue to re-enable hold and capture.",
-            args.yes,
         )
         cal.prepare_capture_neutral()
         cal.capture_neutral()
 
-        _pause("Step 4/4: Saving endpoint calibration.", args.yes)
+        _pause("Step 4/4: Saving endpoint calibration.")
         cal.save_results()
 
     finally:
