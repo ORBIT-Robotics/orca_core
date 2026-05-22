@@ -106,29 +106,29 @@ class TestDynamixelPreflightScripts(unittest.TestCase):
 
         with (
             mock.patch.object(_role_cli, "_role_motor_type", return_value="dynamixel"),
-            mock.patch.object(_role_cli, "preflight_dynamixel_role", return_value=False) as preflight,
+            mock.patch.object(_role_cli, "preflight_motor_role", return_value=False) as preflight,
         ):
             success, message = _role_cli.connect_hand_with_dynamixel_preflight(spec, hand)
 
         self.assertFalse(success)
-        self.assertIn("Dynamixel preflight failed", message)
+        self.assertIn("ORCA hand bus preflight failed", message)
         preflight.assert_called_once_with(spec)
         hand.connect.assert_not_called()
 
-    def test_connect_helper_skips_preflight_for_non_dynamixel_roles(self):
+    def test_connect_helper_preflights_feetech_roles_before_connect(self):
         spec = mock.Mock(role="helios_upper_left_feetech")
         hand = mock.Mock()
         hand.connect.return_value = (True, "Connection successful")
 
         with (
             mock.patch.object(_role_cli, "_role_motor_type", return_value="feetech"),
-            mock.patch.object(_role_cli, "preflight_dynamixel_role") as preflight,
+            mock.patch.object(_role_cli, "preflight_motor_role", return_value=True) as preflight,
         ):
-            success, message = _role_cli.connect_hand_with_dynamixel_preflight(spec, hand)
+            success, message = _role_cli.connect_hand_with_bus_preflight(spec, hand)
 
         self.assertTrue(success)
         self.assertEqual(message, "Connection successful")
-        preflight.assert_not_called()
+        preflight.assert_called_once_with(spec)
         hand.connect.assert_called_once_with()
 
 

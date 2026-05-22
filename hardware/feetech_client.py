@@ -38,6 +38,8 @@ from .feetech import (
 DEFAULT_POS_SCALE = 2.0 * np.pi / 4096  # 4096 steps for 360°
 DEFAULT_VEL_SCALE = 0.732 * 2.0 * np.pi / 60.0  # Convert 0.732 RPM/unit to rad/s
 DEFAULT_CUR_SCALE = 6.5  # mA per unit
+DEFAULT_TORQUE_RETRIES = 3
+DEFAULT_TORQUE_RETRY_INTERVAL = 0.25
 
 # Position limits for STS servo mode (0-4095, one full rotation)
 POS_MIN = 0
@@ -162,11 +164,31 @@ class FeetechClient(MotorClient):
         if self.disabled_motor_ids:
             logging.warning('Skipping disabled Feetech motor IDs: %s', sorted(self.disabled_motor_ids))
 
+        mode_failed_ids = []
         for motor_id in self.active_motor_ids:
-            self.packet_handler.write1ByteTxRx(motor_id, SMS_STS_MODE, 0)
+            result, error = self.packet_handler.write1ByteTxRx(motor_id, SMS_STS_MODE, 0)
+            if result != COMM_SUCCESS or error != 0:
+                mode_failed_ids.append(motor_id)
+        if mode_failed_ids:
+            raise OSError(
+                "Connected to Feetech serial port but could not set servo mode. "
+                f"port={self.port_name!r}, baudrate={self.baudrate}, "
+                f"failed_ids={mode_failed_ids}."
+            )
 
         # Enable torque for all active motors.
-        self.set_torque_enabled(self.active_motor_ids, True)
+        failed_ids = self.set_torque_enabled(
+            self.active_motor_ids,
+            True,
+            retries=8,
+            retry_interval=DEFAULT_TORQUE_RETRY_INTERVAL,
+        )
+        if failed_ids:
+            raise OSError(
+                "Connected to Feetech serial port but could not enable torque. "
+                f"port={self.port_name!r}, baudrate={self.baudrate}, "
+                f"failed_ids={list(failed_ids)}."
+            )
 
     def disconnect(self, force: bool = False) -> None:
         """Disconnects from the Feetech motors."""
@@ -202,8 +224,8 @@ class FeetechClient(MotorClient):
         self,
         motor_ids: Sequence[int],
         enabled: bool,
-        retries: int = -1,
-        retry_interval: float = 0.25,
+        retries: int = DEFAULT_TORQUE_RETRIES,
+        retry_interval: float = DEFAULT_TORQUE_RETRY_INTERVAL,
     ) -> Sequence[int]:
         """Sets whether torque is enabled for the motors."""
         self._check_connected()

@@ -22,7 +22,9 @@ class PortHandler(object):
         return self.setBaudRate(self.baudrate)
 
     def closePort(self):
-        self.ser.close()
+        if self.ser is not None:
+            self.ser.close()
+        self.ser = None
         self.is_open = False
 
     def clearPort(self):

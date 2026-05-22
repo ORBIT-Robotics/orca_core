@@ -189,6 +189,8 @@ def check_dynamixel_role_status(
     spec,
     *,
     motor_ids: Sequence[int] | None = None,
+    samples: int = 3,
+    sample_interval_sec: float = 0.1,
 ) -> DynamixelRoleStatusReport:
     try:
         import dynamixel_sdk
@@ -212,17 +214,41 @@ def check_dynamixel_role_status(
                 spec,
                 f"failed to set baudrate {spec.baudrate}",
             )
-        print(f"[{spec.role}] Hardware Error Status(70) check on IDs {selected_motor_ids}:")
-        statuses = _read_hardware_error_statuses(
-            packet_handler,
-            port_handler,
-            selected_motor_ids,
+        sample_count = max(1, int(samples))
+        print(
+            f"[{spec.role}] Hardware Error Status(70) check on IDs "
+            f"{selected_motor_ids} ({sample_count} sample(s)):"
         )
+        last_statuses: tuple[DynamixelMotorStatus, ...] = ()
+        for sample_idx in range(sample_count):
+            if sample_count > 1:
+                print(f"  sample {sample_idx + 1}/{sample_count}:")
+            try:
+                statuses = _read_hardware_error_statuses(
+                    packet_handler,
+                    port_handler,
+                    selected_motor_ids,
+                )
+            except Exception as exc:
+                return _make_transport_error_report(
+                    spec,
+                    f"{type(exc).__name__}: {exc}",
+                )
+            last_statuses = statuses
+            if statuses and all(status.ok for status in statuses):
+                return DynamixelRoleStatusReport(
+                    role=spec.role,
+                    port=spec.port,
+                    baudrate=spec.baudrate,
+                    statuses=statuses,
+                )
+            if sample_idx + 1 < sample_count and sample_interval_sec > 0:
+                time.sleep(sample_interval_sec)
         return DynamixelRoleStatusReport(
             role=spec.role,
             port=spec.port,
             baudrate=spec.baudrate,
-            statuses=statuses,
+            statuses=last_statuses,
         )
     finally:
         port_handler.closePort()

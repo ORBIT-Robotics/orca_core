@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Calibrate all HELIOS ORCA hands concurrently."""
+"""Calibrate all HELIOS ORCA hands sequentially by default."""
 
 from __future__ import annotations
 
 import argparse
 import os
 from collections import Counter
-import signal
 import subprocess
 import sys
 import threading
@@ -14,14 +13,8 @@ import time
 from pathlib import Path
 
 try:
+    from orca_core.scripts._bus_preflight import preflight_motor_role, preflight_motor_roles
     from orca_core.scripts._dynamixel_preflight import (
-        ADDR_HARDWARE_ERROR_STATUS,
-        ADDR_TORQUE_ENABLE,
-        DYNAMIXEL_REBOOT_SETTLE_SEC,
-        _format_packet_status,
-        _load_model_config,
-        _read_hardware_errors,
-        _reboot_dynamixel_role,
         _reboot_dynamixel_roles,
         _role_motor_ids,
         _role_motor_type,
@@ -34,14 +27,8 @@ except ModuleNotFoundError:
         sys.path.insert(0, str(ORCA_CORE_ROOT))
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
+    from orca_core.scripts._bus_preflight import preflight_motor_role, preflight_motor_roles
     from orca_core.scripts._dynamixel_preflight import (
-        ADDR_HARDWARE_ERROR_STATUS,
-        ADDR_TORQUE_ENABLE,
-        DYNAMIXEL_REBOOT_SETTLE_SEC,
-        _format_packet_status,
-        _load_model_config,
-        _read_hardware_errors,
-        _reboot_dynamixel_role,
         _reboot_dynamixel_roles,
         _role_motor_ids,
         _role_motor_type,
@@ -50,11 +37,12 @@ except ModuleNotFoundError:
 
 
 DEFAULT_ROLES = (
-    "helios_upper_left_feetech",
-    "helios_upper_right_feetech",
     "helios_lower_left",
     "helios_lower_right",
+    "helios_upper_left_feetech",
+    "helios_upper_right_feetech",
 )
+TIMEOUT_EXIT_CODE = 124
 
 
 def _default_log_dir() -> Path:
@@ -118,18 +106,22 @@ def _low_level_dynamixel_log_category(text: str) -> str | None:
     return None
 
 
-def _terminate_processes(processes: dict[str, subprocess.Popen[str]]) -> None:
-    for process in processes.values():
-        if process.poll() is None:
-            process.terminate()
+def _terminate_child(role: str, process: subprocess.Popen[str]) -> None:
+    if process.poll() is not None:
+        return
+    print(f"[{role}] terminating calibration process pid={process.pid}", flush=True)
+    process.terminate()
+    try:
+        process.wait(timeout=5.0)
+    except subprocess.TimeoutExpired:
+        print(f"[{role}] killing calibration process pid={process.pid}", flush=True)
+        process.kill()
+        process.wait(timeout=5.0)
 
-    deadline = time.monotonic() + 5.0
-    for process in processes.values():
-        remaining = max(0.0, deadline - time.monotonic())
-        try:
-            process.wait(timeout=remaining)
-        except subprocess.TimeoutExpired:
-            process.kill()
+
+def _terminate_processes(processes: dict[str, subprocess.Popen[str]]) -> None:
+    for role, process in processes.items():
+        _terminate_child(role, process)
 
 
 def _validate_roles(role_names: list[str]):
@@ -150,9 +142,133 @@ def _validate_roles(role_names: list[str]):
     return specs
 
 
-def main() -> int:
+def _run_child_process(
+    spec,
+    command: list[str],
+    log_dir: Path,
+    verbose_console: bool,
+    timeout_sec: float,
+    env: dict[str, str],
+) -> int:
+    log_path = log_dir / f"{spec.role}.log"
+    with open(log_path, "w", encoding="utf-8") as log_file:
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env=env,
+        )
+        thread = threading.Thread(
+            target=_stream_child_output,
+            args=(spec.role, process, log_file, verbose_console),
+            daemon=True,
+        )
+        thread.start()
+        print(f"Started {spec.role} as PID {process.pid}; log={log_path}", flush=True)
+        try:
+            return process.wait(timeout=timeout_sec if timeout_sec > 0 else None)
+        except subprocess.TimeoutExpired:
+            print(
+                f"[{spec.role}] ERROR: calibration timed out after {timeout_sec:.1f}s.",
+                file=sys.stderr,
+                flush=True,
+            )
+            _terminate_child(spec.role, process)
+            return TIMEOUT_EXIT_CODE
+        except KeyboardInterrupt:
+            _terminate_child(spec.role, process)
+            raise
+        finally:
+            thread.join(timeout=2.0)
+
+
+def _run_parallel(
+    specs,
+    commands: dict[str, list[str]],
+    log_dir: Path,
+    verbose_console: bool,
+    timeout_sec: float,
+    stagger_sec: float,
+    env: dict[str, str],
+) -> tuple[dict[str, int], bool]:
+    processes: dict[str, subprocess.Popen[str]] = {}
+    log_files = {}
+    threads: list[threading.Thread] = []
+    start_times: dict[str, float] = {}
+    exit_codes: dict[str, int] = {}
+    interrupted = False
+
+    try:
+        for idx, spec in enumerate(specs):
+            if idx and stagger_sec:
+                time.sleep(stagger_sec)
+            log_path = log_dir / f"{spec.role}.log"
+            log_file = open(log_path, "w", encoding="utf-8")
+            log_files[spec.role] = log_file
+            process = subprocess.Popen(
+                commands[spec.role],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=env,
+            )
+            processes[spec.role] = process
+            start_times[spec.role] = time.monotonic()
+            thread = threading.Thread(
+                target=_stream_child_output,
+                args=(spec.role, process, log_file, verbose_console),
+                daemon=True,
+            )
+            thread.start()
+            threads.append(thread)
+            print(f"Started {spec.role} as PID {process.pid}; log={log_path}", flush=True)
+
+        while len(exit_codes) < len(processes):
+            now = time.monotonic()
+            for role, process in processes.items():
+                if role in exit_codes:
+                    continue
+                returncode = process.poll()
+                if returncode is not None:
+                    exit_codes[role] = int(returncode)
+                    continue
+                if timeout_sec > 0 and now - start_times[role] >= timeout_sec:
+                    print(
+                        f"[{role}] ERROR: calibration timed out after {timeout_sec:.1f}s.",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    _terminate_child(role, process)
+                    exit_codes[role] = TIMEOUT_EXIT_CODE
+            if len(exit_codes) < len(processes):
+                time.sleep(0.2)
+    except KeyboardInterrupt:
+        interrupted = True
+        print("\nReceived interrupt. Stopping calibration processes...", flush=True)
+        _terminate_processes(processes)
+        for role, process in processes.items():
+            exit_codes.setdefault(role, process.poll() if process.poll() is not None else 130)
+    finally:
+        for thread in threads:
+            thread.join(timeout=2.0)
+        for log_file in log_files.values():
+            log_file.close()
+
+    return exit_codes, interrupted
+
+
+def _print_exit_codes(exit_codes: dict[str, int]) -> None:
+    print("Calibration exit codes:")
+    for role, returncode in exit_codes.items():
+        print(f"  {role}: {returncode}")
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Calibrate all HELIOS ORCA hand roles concurrently."
+        description="Calibrate all HELIOS ORCA hand roles sequentially by default."
     )
     parser.add_argument(
         "--role",
@@ -177,6 +293,22 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Launch all role calibrations concurrently after a shared bus preflight.",
+    )
+    parser.add_argument(
+        "--continue-on-failure",
+        action="store_true",
+        help="Continue with remaining roles after one role preflight or calibration fails.",
+    )
+    parser.add_argument(
+        "--role-timeout-sec",
+        type=float,
+        default=600.0,
+        help="Maximum seconds to allow each role calibration child process. Default: 600.",
+    )
+    parser.add_argument(
         "--stagger-sec",
         type=float,
         default=1.0,
@@ -198,10 +330,13 @@ def main() -> int:
         action="store_true",
         help="Print every child process log line to the terminal. Full logs are always written to files.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.stagger_sec < 0:
         print("ERROR: --stagger-sec must be >= 0.", file=sys.stderr)
+        return 2
+    if args.role_timeout_sec < 0:
+        print("ERROR: --role-timeout-sec must be >= 0.", file=sys.stderr)
         return 2
 
     role_names = args.roles or list(DEFAULT_ROLES)
@@ -223,6 +358,9 @@ def main() -> int:
     print("Calibration commands:")
     for role, command in commands.items():
         print(f"  {role}: {' '.join(command)}")
+    print(
+        "Mode: parallel" if args.parallel else "Mode: sequential; one hand role owns its serial bus at a time."
+    )
     print(
         "Note: Dynamixel hands currently try only the configured baud. "
         "Fallback baud probing is disabled in DynamixelClient.connect()."
@@ -248,63 +386,61 @@ def main() -> int:
             "to the per-role log files."
         )
 
-    processes: dict[str, subprocess.Popen[str]] = {}
-    log_files = {}
-    threads: list[threading.Thread] = []
+    env = os.environ.copy()
+    if args.parallel:
+        if not preflight_motor_roles(specs):
+            print("ERROR: ORCA hand bus preflight failed. Aborting calibration.", file=sys.stderr)
+            return 1
+        exit_codes, interrupted = _run_parallel(
+            specs,
+            commands,
+            log_dir,
+            args.verbose_child_logs,
+            args.role_timeout_sec,
+            args.stagger_sec,
+            env,
+        )
+        _print_exit_codes(exit_codes)
+        if interrupted:
+            return 130
+        return 0 if all(returncode == 0 for returncode in exit_codes.values()) else 1
 
+    exit_codes: dict[str, int] = {}
     interrupted = False
-    previous_sigint = signal.getsignal(signal.SIGINT)
-
-    def _handle_sigint(signum, frame):
-        nonlocal interrupted
-        interrupted = True
-        print("\nReceived interrupt. Stopping calibration processes...", flush=True)
-        _terminate_processes(processes)
-
-    signal.signal(signal.SIGINT, _handle_sigint)
-
     try:
-        env = os.environ.copy()
         for idx, spec in enumerate(specs):
             if idx and args.stagger_sec:
                 time.sleep(args.stagger_sec)
+            print(f"[{spec.role}] Running ORCA hand bus preflight before calibration.")
+            if not preflight_motor_role(spec):
+                print(
+                    f"[{spec.role}] ERROR: bus preflight failed; calibration child not started.",
+                    file=sys.stderr,
+                )
+                exit_codes[spec.role] = 1
+                if not args.continue_on_failure:
+                    break
+                continue
 
-            log_path = log_dir / f"{spec.role}.log"
-            log_file = open(log_path, "w", encoding="utf-8")
-            log_files[spec.role] = log_file
-            process = subprocess.Popen(
+            returncode = _run_child_process(
+                spec,
                 commands[spec.role],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                env=env,
+                log_dir,
+                args.verbose_child_logs,
+                args.role_timeout_sec,
+                env,
             )
-            processes[spec.role] = process
-            thread = threading.Thread(
-                target=_stream_child_output,
-                args=(spec.role, process, log_file, args.verbose_child_logs),
-                daemon=True,
-            )
-            thread.start()
-            threads.append(thread)
-            print(f"Started {spec.role} as PID {process.pid}", flush=True)
+            exit_codes[spec.role] = returncode
+            if returncode != 0 and not args.continue_on_failure:
+                break
+    except KeyboardInterrupt:
+        interrupted = True
+        print("\nReceived interrupt. Calibration stopped.", flush=True)
 
-        exit_codes = {role: process.wait() for role, process in processes.items()}
-    finally:
-        signal.signal(signal.SIGINT, previous_sigint)
-        for thread in threads:
-            thread.join(timeout=1.0)
-        for log_file in log_files.values():
-            log_file.close()
-
-    print("Calibration exit codes:")
-    for role, returncode in exit_codes.items():
-        print(f"  {role}: {returncode}")
-
+    _print_exit_codes(exit_codes)
     if interrupted:
         return 130
-    return 0 if all(returncode == 0 for returncode in exit_codes.values()) else 1
+    return 0 if exit_codes and all(returncode == 0 for returncode in exit_codes.values()) else 1
 
 
 if __name__ == "__main__":

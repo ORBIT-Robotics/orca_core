@@ -142,8 +142,12 @@ class protocol_packet_handler(object):
         #print "[TxPacket] %r" % txpacket
 
         # tx packet
-        self.portHandler.clearPort()
-        written_packet_length = self.portHandler.writePort(txpacket)
+        try:
+            self.portHandler.clearPort()
+            written_packet_length = self.portHandler.writePort(txpacket)
+        except Exception:
+            self.portHandler.is_using = False
+            raise
         if total_packet_length != written_packet_length:
             self.portHandler.is_using = False
             return COMM_TX_FAIL
@@ -242,10 +246,14 @@ class protocol_packet_handler(object):
             self.portHandler.setPacketTimeout(6)  # HEADER0 HEADER1 ID LENGTH ERROR CHECKSUM
 
         # rx packet
-        while True:
-            rxpacket, result = self.rxPacket()
-            if result != COMM_SUCCESS or txpacket[PKT_ID] == rxpacket[PKT_ID]:
-                break
+        try:
+            while True:
+                rxpacket, result = self.rxPacket()
+                if result != COMM_SUCCESS or txpacket[PKT_ID] == rxpacket[PKT_ID]:
+                    break
+        except Exception:
+            self.portHandler.is_using = False
+            raise
 
         if result == COMM_SUCCESS and txpacket[PKT_ID] == rxpacket[PKT_ID]:
             error = rxpacket[PKT_ERROR]

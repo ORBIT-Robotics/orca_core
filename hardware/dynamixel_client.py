@@ -55,6 +55,8 @@ DEFAULT_POS_SCALE = 2.0 * np.pi / 4096  # 0.088 degrees
 DEFAULT_VEL_SCALE = 0.229 * 2.0 * np.pi / 60.0  # 0.229 rpm
 DEFAULT_CUR_SCALE = 1.34
 DEFAULT_MAX_CONSECUTIVE_READ_FAILURES = 3
+DEFAULT_TORQUE_RETRIES = 3
+DEFAULT_TORQUE_RETRY_INTERVAL = 0.25
 
 
 def dynamixel_cleanup_handler():
@@ -252,8 +254,8 @@ class DynamixelClient:
     def set_torque_enabled(self,
                            motor_ids: Sequence[int],
                            enabled: bool,
-                           retries: int = -1,
-                           retry_interval: float = 0.25):
+                           retries: int = DEFAULT_TORQUE_RETRIES,
+                           retry_interval: float = DEFAULT_TORQUE_RETRY_INTERVAL):
         """Sets whether torque is enabled for the motors.
 
         Args:
