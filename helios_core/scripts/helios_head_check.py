@@ -49,6 +49,12 @@ def main() -> int:
     motor_ids = parse_motor_ids(config)
 
     hardware = HeliosHeadHardware(config, motor_ids)
+    disabled_axes = tuple(getattr(hardware, "disabled_motor_axes", ()))
+    active_ids = tuple(
+        motor_ids.as_dict[axis]
+        for axis in ("yaw", "pitch", "roll")
+        if axis not in disabled_axes
+    )
     checks: list[tuple[str, bool, str]] = []
 
     try:
@@ -61,6 +67,7 @@ def main() -> int:
                     True,
                     (
                         f"connected on {hardware.port} @ {hardware.baudrate} with IDs {motor_ids.ordered}; "
+                        f"active_ids={active_ids} disabled_axes={disabled_axes}; "
                         f"pos_rad={_fmt_vec(state.positions_rad)} "
                         f"vel_rad_s={_fmt_vec(state.velocities_rad_s)} "
                         f"cur_ma={_fmt_vec(state.currents_ma, precision=1)}"

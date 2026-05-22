@@ -17,7 +17,9 @@ from helios_core.utils.head_config import (
     calibration_log_dir,
     calibration_output_path,
     load_head_config,
+    parse_disabled_motor_axes,
     parse_motor_ids,
+    read_yaml,
     utc_now_iso,
     write_yaml,
 )
@@ -47,10 +49,14 @@ class HeliosHeadCalibrator:
         self.config_path = cfg_path
 
         self.motor_ids: HeadMotorIDs = parse_motor_ids(self.config)
+        self.disabled_motor_axes = parse_disabled_motor_axes(self.config)
         self.hardware = HeliosHeadHardware(self.config, self.motor_ids)
 
         self.calibration_path: Path = calibration_output_path(self.config, self.config_path)
         self.log_root: Path = calibration_log_dir(self.config, self.config_path)
+        existing_neutral = self._existing_neutral_motors()
+        if existing_neutral:
+            self.hardware.set_disabled_motor_positions(existing_neutral)
 
         self.motor_limits: Dict[str, tuple[float, float]] = {}
         self.neutral_motors: Optional[Dict[str, float]] = None
@@ -62,6 +68,58 @@ class HeliosHeadCalibrator:
     @property
     def axis_order(self) -> tuple[str, str, str]:
         return MOTOR_AXES
+
+    @property
+    def active_axis_order(self) -> tuple[str, ...]:
+        return tuple(axis for axis in MOTOR_AXES if axis not in self.disabled_motor_axes)
+
+    def _read_existing_calibration(self) -> Dict:
+        try:
+            data = read_yaml(self.calibration_path)
+        except Exception:
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    @staticmethod
+    def _axis_value(mapping: Dict, axis: str):
+        if axis in mapping:
+            return mapping[axis]
+        legacy_aliases = {"pitch": "upper_left", "roll": "upper_right"}
+        legacy_axis = legacy_aliases.get(axis)
+        if legacy_axis is not None and legacy_axis in mapping:
+            return mapping[legacy_axis]
+        return None
+
+    def _existing_motor_limit(self, axis: str) -> tuple[float, float] | None:
+        value = self._axis_value(dict(self._read_existing_calibration().get("motor_limits", {})), axis)
+        if value is None or len(value) != 2:
+            return None
+        lo = float(value[0])
+        hi = float(value[1])
+        if not (np.isfinite(lo) and np.isfinite(hi) and lo < hi):
+            return None
+        return lo, hi
+
+    def _existing_neutral_motors(self) -> Dict[str, float]:
+        neutral = dict((self._read_existing_calibration().get("neutral") or {}).get("motors", {}))
+        out: Dict[str, float] = {}
+        for axis in MOTOR_AXES:
+            value = self._axis_value(neutral, axis)
+            if value is None:
+                continue
+            value_f = float(value)
+            if np.isfinite(value_f):
+                out[axis] = value_f
+        return out
+
+    def _disabled_axis_placeholder_limit(self, axis: str, base_positions: np.ndarray) -> tuple[float, float]:
+        existing = self._existing_motor_limit(axis)
+        if existing is not None:
+            return existing
+        idx = self._axis_index(axis)
+        center = float(np.asarray(base_positions, dtype=float).reshape(3,)[idx])
+        span = max(0.1, abs(float(self._virtual_limits_from_config().get(axis, 0.7))))
+        return center - span, center + span
 
     def connect(self) -> None:
         self.hardware.connect()
@@ -211,7 +269,16 @@ class HeliosHeadCalibrator:
             "roll": [None, None],
         }
 
-        for axis in self.axis_order:
+        for axis in self.disabled_motor_axes:
+            lo, hi = self._disabled_axis_placeholder_limit(axis, base)
+            limits[axis][0] = lo
+            limits[axis][1] = hi
+            print(
+                f"[helios_head] Skipping limits for disabled {axis} motor; "
+                f"using [{lo:.5f}, {hi:.5f}] rad."
+            )
+
+        for axis in self.active_axis_order:
             print(f"[helios_head] Searching limits for {axis}...")
             idx = self._axis_index(axis)
             anchor = self.hardware.get_motor_positions(as_dict=False)
@@ -247,6 +314,10 @@ class HeliosHeadCalibrator:
         time.sleep(settle_time_sec)
 
         motor_pos = self.hardware.get_motor_positions(as_dict=False)
+        existing_neutral = self._existing_neutral_motors()
+        for axis in self.disabled_motor_axes:
+            if axis in existing_neutral:
+                motor_pos[self._axis_index(axis)] = existing_neutral[axis]
         self._validate_neutral_within_limits(motor_pos, margin_rad=0.0)
         self.neutral_motors = {
             "yaw": float(motor_pos[0]),

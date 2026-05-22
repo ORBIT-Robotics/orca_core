@@ -19,6 +19,7 @@ _EXACT_PORT_PREFIXES = (
     "/dev/serial/by-id/",
     "/dev/orca/",
 )
+HEAD_MOTOR_AXES = ("yaw", "pitch", "roll")
 
 
 @dataclass(frozen=True, init=False)
@@ -225,6 +226,43 @@ def parse_motor_ids(config: Dict[str, Any]) -> HeadMotorIDs:
     if len(set(ids.ordered)) != 3:
         raise ValueError(f"Head motor IDs must be unique; got {ids.ordered}")
     return ids
+
+
+def parse_disabled_motor_axes(config: Dict[str, Any]) -> tuple[str, ...]:
+    """Return normalized HELIOS head motor axes that should not be torqued or commanded."""
+    hw = config.get("hardware", {})
+    raw = hw.get("disabled_motor_axes", hw.get("disabled_axes", ()))
+    if raw is None:
+        return ()
+    if isinstance(raw, str):
+        values = [raw]
+    else:
+        try:
+            values = list(raw)
+        except TypeError as exc:
+            raise ValueError("hardware.disabled_motor_axes must be a string or sequence.") from exc
+
+    aliases = {
+        "headyaw": "yaw",
+        "head_yaw": "yaw",
+        "upper_left": "pitch",
+        "headpitch": "pitch",
+        "head_pitch": "pitch",
+        "upper_right": "roll",
+        "headroll": "roll",
+        "head_roll": "roll",
+    }
+    disabled: list[str] = []
+    for value in values:
+        axis = aliases.get(str(value).strip().lower(), str(value).strip().lower())
+        if axis not in HEAD_MOTOR_AXES:
+            raise ValueError(
+                f"Unsupported HELIOS head disabled motor axis '{value}'. "
+                f"Expected one of {HEAD_MOTOR_AXES}."
+            )
+        if axis not in disabled:
+            disabled.append(axis)
+    return tuple(disabled)
 
 
 def _helios_robot_config_path(repo_root: Path) -> Path:

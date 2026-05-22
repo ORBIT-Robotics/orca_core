@@ -11,6 +11,7 @@ import numpy as np
 from helios_core.utils.head_config import (
     DEFAULT_HEAD_ROLE,
     load_head_config,
+    parse_disabled_motor_axes,
     parse_motor_ids,
     read_yaml,
     resolve_repo_path,
@@ -28,6 +29,7 @@ class HeliosHeadRuntime:
         self.config_path: Path = cfg_path
 
         self.motor_ids = parse_motor_ids(self.config)
+        self.disabled_motor_axes = parse_disabled_motor_axes(self.config)
         self.hardware = HeliosHeadHardware(self.config, self.motor_ids)
 
         calib_rel = str(
@@ -45,6 +47,7 @@ class HeliosHeadRuntime:
             )
 
         self.model = HeliosHeadCalibrationModel.from_yaml_dict(calib_data, motor_ids=self.motor_ids)
+        self.hardware.set_disabled_motor_positions(self.model.neutral_motors)
         hw_cfg = dict(self.config.get("hardware", {}))
         self.command_timeout_sec = float(hw_cfg.get("command_timeout_sec", 0.75))
         self.motor_margin_rad = float(dict(self.config.get("safety", {})).get("motor_limit_margin_rad", 0.0))
@@ -69,6 +72,8 @@ class HeliosHeadRuntime:
             virtual_cmd = np.zeros(3, dtype=float)
         else:
             virtual_cmd = self._latest_virtual_cmd.copy()
+        for axis in self.disabled_motor_axes:
+            virtual_cmd[self.model_axis_index(axis)] = 0.0
 
         target = self.model.virtual_to_motor_targets(virtual_cmd)
         target = self.model.clip_motor_targets(target, margin_rad=self.motor_margin_rad)
@@ -83,6 +88,10 @@ class HeliosHeadRuntime:
     def read_virtual_state(self) -> np.ndarray:
         motor_state = self.hardware.read_state()
         return self.model.motor_to_virtual(motor_state.positions_rad)
+
+    @staticmethod
+    def model_axis_index(axis: str) -> int:
+        return ("yaw", "pitch", "roll").index(axis)
 
     def shutdown(self) -> None:
         self.hardware.disconnect()

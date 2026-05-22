@@ -40,6 +40,9 @@ def _resolve_repo_path(path_str: str) -> Path:
 
 
 def _load_runtime_node():
+    local_ros_pkg = REPO_ROOT / "ros2_ws" / "src" / "helios_head_hardware_interface"
+    if local_ros_pkg.exists() and str(local_ros_pkg) not in sys.path:
+        sys.path.insert(0, str(local_ros_pkg))
     try:
         from helios_head_hardware_interface.helios_head_hardware_node import (
             HeliosHeadHardwareNode,
@@ -47,7 +50,6 @@ def _load_runtime_node():
     except ModuleNotFoundError as exc:
         if exc.name != "helios_head_hardware_interface":
             raise
-        local_ros_pkg = REPO_ROOT / "ros2_ws" / "src" / "helios_head_hardware_interface"
         if str(local_ros_pkg) not in sys.path:
             sys.path.insert(0, str(local_ros_pkg))
         from helios_head_hardware_interface.helios_head_hardware_node import (

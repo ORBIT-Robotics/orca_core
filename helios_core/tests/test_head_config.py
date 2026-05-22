@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from helios_core.utils.head_config import resolve_repo_path
+from helios_core.utils.head_config import parse_disabled_motor_axes, resolve_repo_path
 
 
 class TestHeliosHeadConfigPaths(unittest.TestCase):
@@ -15,6 +15,17 @@ class TestHeliosHeadConfigPaths(unittest.TestCase):
             orca_core_root / "models" / "__missing_head__" / "calibration.yaml",
         )
         self.assertNotIn("/helios_core/models/", str(resolved))
+
+    def test_disabled_motor_axes_are_normalized(self):
+        disabled = parse_disabled_motor_axes(
+            {
+                "hardware": {
+                    "disabled_motor_axes": ["HeadYaw", "upper_left", "yaw"],
+                }
+            }
+        )
+
+        self.assertEqual(disabled, ("yaw", "pitch"))
 
 
 if __name__ == "__main__":

@@ -6,9 +6,13 @@ hardware:
     yaw: 21
     pitch: 22
     roll: 23
-  startup_current_limit_ma: 300
-  runtime_current_limit_ma: 400
-  calibration_current_limit_ma: 300
+  disabled_motor_axes:
+    - yaw
+  disabled_motor_positions_rad:
+    yaw: -2.882349967956543
+  startup_current_limit_ma: 600
+  runtime_current_limit_ma: 650
+  calibration_current_limit_ma: 600
   runtime_rate_hz: 50.0
   command_timeout_sec: 0.75
 

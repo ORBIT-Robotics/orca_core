@@ -9,7 +9,7 @@ from typing import Dict, Iterable, Optional
 
 import numpy as np
 
-from helios_core.utils.head_config import HeadMotorIDs
+from helios_core.utils.head_config import HeadMotorIDs, parse_disabled_motor_axes
 from hardware.dynamixel_client import DynamixelClient
 
 
@@ -32,6 +32,15 @@ class HeliosHeadHardware:
         self.motor_order = ("yaw", "pitch", "roll")
         self._ordered_ids = motor_ids.ordered
         self._id_to_index = {motor_id: idx for idx, motor_id in enumerate(self._ordered_ids)}
+        self.disabled_motor_axes = parse_disabled_motor_axes(self._cfg)
+        self._disabled_indices = tuple(
+            idx for idx, axis in enumerate(self.motor_order) if axis in self.disabled_motor_axes
+        )
+        self._active_indices = tuple(
+            idx for idx, axis in enumerate(self.motor_order) if axis not in self.disabled_motor_axes
+        )
+        self._active_ids = tuple(self._ordered_ids[idx] for idx in self._active_indices)
+        self._disabled_ids = tuple(self._ordered_ids[idx] for idx in self._disabled_indices)
 
         self.port = str(hw_cfg.get("port", "/dev/ttyUSB0"))
         self.baudrate = int(hw_cfg.get("baudrate", 3000000))
@@ -44,9 +53,66 @@ class HeliosHeadHardware:
 
         self._dxl_client = None
         self._lock = threading.RLock()
+        self._cached_positions_rad = self._disabled_axis_defaults(
+            hw_cfg.get("disabled_motor_positions_rad", {})
+        )
+        self._cached_velocities_rad_s = np.zeros(3, dtype=float)
+        self._cached_currents_ma = np.zeros(3, dtype=float)
 
     def _ensure_client_class(self):
         return DynamixelClient
+
+    def _disabled_axis_defaults(self, raw) -> np.ndarray:
+        values = np.zeros(3, dtype=float)
+        if not isinstance(raw, dict):
+            return values
+        for idx, axis in enumerate(self.motor_order):
+            if axis not in self.disabled_motor_axes:
+                continue
+            if axis not in raw:
+                continue
+            value = float(raw[axis])
+            if not np.isfinite(value):
+                raise ValueError(f"hardware.disabled_motor_positions_rad.{axis} must be finite.")
+            values[idx] = value
+        return values
+
+    def set_disabled_motor_positions(self, positions) -> None:
+        """Set synthetic positions reported for disabled axes."""
+        if not self.disabled_motor_axes:
+            return
+        if isinstance(positions, dict):
+            values = positions
+        else:
+            arr = np.asarray(positions, dtype=float).reshape(3,)
+            values = {axis: arr[idx] for idx, axis in enumerate(self.motor_order)}
+        with self._lock:
+            for idx, axis in enumerate(self.motor_order):
+                if axis not in self.disabled_motor_axes or axis not in values:
+                    continue
+                value = float(values[axis])
+                if not np.isfinite(value):
+                    raise ValueError(f"Disabled motor position for {axis} must be finite.")
+                self._cached_positions_rad[idx] = value
+
+    def _active_motor_ids(self, motor_ids: Optional[Iterable[int]] = None) -> list[int]:
+        requested = list(motor_ids) if motor_ids is not None else list(self._active_ids)
+        disabled = set(self._disabled_ids)
+        return [motor_id for motor_id in requested if motor_id not in disabled]
+
+    def _disabled_motor_ids(self, motor_ids: Optional[Iterable[int]] = None) -> list[int]:
+        requested = list(motor_ids) if motor_ids is not None else list(self._ordered_ids)
+        disabled = set(self._disabled_ids)
+        return [motor_id for motor_id in requested if motor_id in disabled]
+
+    def _disable_ids_best_effort(self, ids: Iterable[int]) -> None:
+        ids_list = list(ids)
+        if not ids_list or self._dxl_client is None:
+            return
+        try:
+            self._dxl_client.set_torque_enabled(ids_list, False, retries=0)
+        except Exception:
+            pass
 
     @property
     def connected(self) -> bool:
@@ -58,8 +124,9 @@ class HeliosHeadHardware:
             if self.connected:
                 return
             client_cls = self._ensure_client_class()
-            self._dxl_client = client_cls(self._ordered_ids, self.port, self.baudrate)
+            self._dxl_client = client_cls(self._active_ids, self.port, self.baudrate)
             self._dxl_client.connect()
+            self._disable_ids_best_effort(self._disabled_ids)
             self.set_control_mode(self.control_mode)
             self.set_current_limit(self.startup_current_limit_ma)
             self.enable_torque()
@@ -79,13 +146,17 @@ class HeliosHeadHardware:
 
     def enable_torque(self, motor_ids: Optional[Iterable[int]] = None) -> None:
         with self._lock:
-            ids = list(motor_ids) if motor_ids is not None else list(self._ordered_ids)
+            ids = self._active_motor_ids(motor_ids)
+            if not ids:
+                return
             self._dxl_client.set_torque_enabled(ids, True)
 
     def disable_torque(self, motor_ids: Optional[Iterable[int]] = None) -> None:
         with self._lock:
-            ids = list(motor_ids) if motor_ids is not None else list(self._ordered_ids)
-            self._dxl_client.set_torque_enabled(ids, False)
+            ids = self._active_motor_ids(motor_ids)
+            if ids:
+                self._dxl_client.set_torque_enabled(ids, False)
+            self._disable_ids_best_effort(self._disabled_motor_ids(motor_ids))
 
     def set_control_mode(self, mode: str, motor_ids: Optional[Iterable[int]] = None) -> None:
         mode_map = {
@@ -98,12 +169,16 @@ class HeliosHeadHardware:
         mode_value = mode_map.get(str(mode).strip())
         if mode_value is None:
             raise ValueError(f"Unsupported control mode '{mode}'.")
-        ids = list(motor_ids) if motor_ids is not None else list(self._ordered_ids)
+        ids = self._active_motor_ids(motor_ids)
+        if not ids:
+            return
         with self._lock:
             self._dxl_client.set_operating_mode(ids, mode_value)
 
     def set_current_limit(self, current_ma: float, motor_ids: Optional[Iterable[int]] = None) -> None:
-        ids = list(motor_ids) if motor_ids is not None else list(self._ordered_ids)
+        ids = self._active_motor_ids(motor_ids)
+        if not ids:
+            return
         values = np.full(len(ids), float(current_ma), dtype=float)
         with self._lock:
             self._dxl_client.write_desired_current(ids, values)
@@ -111,10 +186,24 @@ class HeliosHeadHardware:
     def read_state(self) -> HeadMotorState:
         with self._lock:
             pos, vel, cur = self._dxl_client.read_pos_vel_cur()
+            pos_active = np.asarray(pos, dtype=float).reshape(-1)
+            vel_active = np.asarray(vel, dtype=float).reshape(-1)
+            cur_active = np.asarray(cur, dtype=float).reshape(-1)
+            if pos_active.size != len(self._active_indices):
+                raise RuntimeError(
+                    f"Expected {len(self._active_indices)} active head motor positions, "
+                    f"got {pos_active.size}."
+                )
+            if vel_active.size != len(self._active_indices) or cur_active.size != len(self._active_indices):
+                raise RuntimeError("Active head motor state arrays have inconsistent sizes.")
+            for active_idx, motor_idx in enumerate(self._active_indices):
+                self._cached_positions_rad[motor_idx] = pos_active[active_idx]
+                self._cached_velocities_rad_s[motor_idx] = vel_active[active_idx]
+                self._cached_currents_ma[motor_idx] = cur_active[active_idx]
         return HeadMotorState(
-            positions_rad=np.asarray(pos, dtype=float).reshape(3,),
-            velocities_rad_s=np.asarray(vel, dtype=float).reshape(3,),
-            currents_ma=np.asarray(cur, dtype=float).reshape(3,),
+            positions_rad=self._cached_positions_rad.copy(),
+            velocities_rad_s=self._cached_velocities_rad_s.copy(),
+            currents_ma=self._cached_currents_ma.copy(),
             timestamp_sec=time.monotonic(),
         )
 
@@ -179,9 +268,15 @@ class HeliosHeadHardware:
             delta = np.clip(delta, -max_step, max_step)
         bounded = current + delta
         bounded = self._apply_limit_clip(bounded, limits)
+        for idx in self._disabled_indices:
+            bounded[idx] = current[idx]
 
         with self._lock:
-            self._dxl_client.write_desired_pos(self._ordered_ids, bounded)
+            if self._active_indices:
+                self._dxl_client.write_desired_pos(
+                    self._active_ids,
+                    bounded[list(self._active_indices)],
+                )
         return bounded
 
     def command_relative_offsets(
@@ -197,6 +292,9 @@ class HeliosHeadHardware:
     def hold_current_position(self) -> np.ndarray:
         pos = self.get_motor_positions(as_dict=False)
         with self._lock:
-            self._dxl_client.write_desired_pos(self._ordered_ids, pos)
+            if self._active_indices:
+                self._dxl_client.write_desired_pos(
+                    self._active_ids,
+                    pos[list(self._active_indices)],
+                )
         return pos
-
