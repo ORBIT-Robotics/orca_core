@@ -83,6 +83,47 @@ def _interrupt_processes(processes: dict[str, subprocess.Popen[str]]) -> None:
             process.wait(timeout=remaining)
         except subprocess.TimeoutExpired:
             process.kill()
+            try:
+                process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                pass
+
+
+def _wait_for_processes(
+    processes: dict[str, subprocess.Popen[str]],
+    start_times: dict[str, float],
+    role_timeout_sec: float,
+) -> tuple[dict[str, int], set[str]]:
+    exit_codes: dict[str, int] = {}
+    timed_out: set[str] = set()
+
+    while len(exit_codes) < len(processes):
+        now = time.monotonic()
+        for role, process in processes.items():
+            if role in exit_codes:
+                continue
+
+            returncode = process.poll()
+            if returncode is not None:
+                exit_codes[role] = returncode
+                continue
+
+            if now - start_times[role] >= role_timeout_sec:
+                print(
+                    f"[{role}] ERROR: neutral timed out after "
+                    f"{role_timeout_sec:.1f}s; stopping process.",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                timed_out.add(role)
+                _interrupt_processes({role: process})
+                returncode = process.poll()
+                exit_codes[role] = returncode if returncode is not None else 124
+
+        if len(exit_codes) < len(processes):
+            time.sleep(0.1)
+
+    return exit_codes, timed_out
 
 
 def _validate_roles(role_names: list[str]):
@@ -135,6 +176,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Delay between launching each role. Default: 0.5.",
     )
     parser.add_argument(
+        "--role-timeout-sec",
+        type=float,
+        default=60.0,
+        help="Maximum seconds to wait for each role after it starts. Default: 60.",
+    )
+    parser.add_argument(
         "--log-dir",
         type=Path,
         default=None,
@@ -155,6 +202,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.stagger_sec < 0:
         print("ERROR: --stagger-sec must be >= 0", file=sys.stderr)
+        return 2
+    if args.role_timeout_sec <= 0:
+        print("ERROR: --role-timeout-sec must be > 0", file=sys.stderr)
         return 2
 
     role_names = args.roles or list(DEFAULT_ROLES)
@@ -185,9 +235,11 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Writing logs to: {log_dir}")
 
     processes: dict[str, subprocess.Popen[str]] = {}
+    start_times: dict[str, float] = {}
     log_files = {}
     threads: list[threading.Thread] = []
     interrupted = False
+    timed_out: set[str] = set()
     previous_sigint = signal.getsignal(signal.SIGINT)
 
     def _handle_sigint(signum, frame):
@@ -216,6 +268,7 @@ def main(argv: list[str] | None = None) -> int:
                 env=env,
             )
             processes[spec.role] = process
+            start_times[spec.role] = time.monotonic()
             thread = threading.Thread(
                 target=_stream_child_output,
                 args=(spec.role, process, log_file),
@@ -225,7 +278,11 @@ def main(argv: list[str] | None = None) -> int:
             threads.append(thread)
             print(f"Started {spec.role} as PID {process.pid}", flush=True)
 
-        exit_codes = {role: process.wait() for role, process in processes.items()}
+        exit_codes, timed_out = _wait_for_processes(
+            processes,
+            start_times,
+            args.role_timeout_sec,
+        )
     finally:
         signal.signal(signal.SIGINT, previous_sigint)
         for thread in threads:
@@ -239,6 +296,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if interrupted:
         return 130
+    if timed_out:
+        return 1
     return 0 if all(returncode == 0 for returncode in exit_codes.values()) else 1
 
 

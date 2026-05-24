@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -24,6 +25,16 @@ class FakeHand:
 
     def disconnect(self):
         self.calls.append(("disconnect",))
+
+
+class FakeProcess:
+    def __init__(self):
+        self.pid = 1234
+        self.stdout = []
+        self.returncode = 0
+
+    def poll(self):
+        return self.returncode
 
 
 class TestHandNeutralScripts(unittest.TestCase):
@@ -98,6 +109,46 @@ class TestHandNeutralScripts(unittest.TestCase):
 
         self.assertEqual(result, 0)
         popen.assert_not_called()
+
+    def test_all_hands_passes_role_timeout_to_process_waiter(self):
+        spec = mock.Mock()
+        spec.role = "helios_lower_left"
+        fake_process = FakeProcess()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with (
+                mock.patch.object(hand_neutral_all, "_validate_roles", return_value=[spec]),
+                mock.patch.object(hand_neutral_all, "print_role_summary"),
+                mock.patch.object(
+                    hand_neutral_all.subprocess,
+                    "Popen",
+                    return_value=fake_process,
+                ),
+                mock.patch.object(
+                    hand_neutral_all,
+                    "_wait_for_processes",
+                    return_value=({spec.role: 0}, set()),
+                ) as wait_for_processes,
+            ):
+                result = hand_neutral_all.main(
+                    [
+                        "--role",
+                        spec.role,
+                        "--log-dir",
+                        tmpdir,
+                        "--role-timeout-sec",
+                        "3.5",
+                    ]
+                )
+
+        self.assertEqual(result, 0)
+        wait_for_processes.assert_called_once()
+        self.assertEqual(wait_for_processes.call_args.args[2], 3.5)
+
+    def test_all_hands_rejects_invalid_role_timeout(self):
+        result = hand_neutral_all.main(["--role-timeout-sec", "0"])
+
+        self.assertEqual(result, 2)
 
 
 if __name__ == "__main__":
