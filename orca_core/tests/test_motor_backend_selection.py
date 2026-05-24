@@ -78,14 +78,15 @@ class TestMotorBackendSelection(unittest.TestCase):
                 FeetechClient.__name__,
             )
 
-    def test_upper_left_feetech_has_no_hardcoded_disabled_motor_ids(self):
+    def test_upper_left_feetech_uses_configured_disabled_motor_ids(self):
         hand = OrcaHand(REPO_ROOT / "models" / "orca_hand_helios_upper_left_feetech")
         client = hand._create_motor_client("/dev/null")
         try:
-            self.assertEqual(hand.disabled_motor_ids, set())
-            self.assertEqual(client.disabled_motor_ids, set())
+            self.assertEqual(hand.disabled_motor_ids, {6})
+            self.assertEqual(client.disabled_motor_ids, {6})
             self.assertIn(1, client.active_motor_ids)
             self.assertIn(2, client.active_motor_ids)
+            self.assertNotIn(6, client.active_motor_ids)
         finally:
             client.disconnect()
 
@@ -118,7 +119,7 @@ class TestMotorBackendSelection(unittest.TestCase):
             self.assertEqual(client.torque_calls[0], (tuple(hand.active_motor_ids), True))
             self.assertNotIn(8, client.operating_mode_calls[0][0])
             self.assertNotIn(8, client.current_writes[0][0])
-            self.assertIn(8, client.torque_calls[-1][0])
+            self.assertNotIn(8, client.torque_calls[-1][0])
 
     def test_active_motor_client_reads_expand_to_configured_motor_order(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

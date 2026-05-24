@@ -3,7 +3,7 @@ import os
 import shutil
 import yaml
 import uuid
-from orca_core.hand_runtime import MockOrcaHand
+from orca_core.hand_runtime import MockOrcaHand, OrcaHand
 from orca_core.utils.yaml_io import read_yaml
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -86,6 +86,27 @@ class TestOrcaHandCalibration(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "Calibration YAML must be a mapping"):
             MockOrcaHand(self.temp_dir)
+
+    def test_joint_calibration_complete_requires_limits_and_ratio(self):
+        hand = object.__new__(OrcaHand)
+        hand.joint_to_motor_map = {"wrist": 1}
+        hand.disabled_motor_ids = set()
+        hand.motor_limits_dict = {1: [None, None]}
+        hand.joint_to_motor_ratios_dict = {1: 1.0}
+
+        self.assertFalse(hand._joint_calibration_complete("wrist"))
+
+        hand.motor_limits_dict = {1: [0.0, 1.0]}
+        hand.joint_to_motor_ratios_dict = {1: 0.0}
+        self.assertFalse(hand._joint_calibration_complete("wrist"))
+
+        hand.joint_to_motor_ratios_dict = {1: 1.0}
+        self.assertTrue(hand._joint_calibration_complete("wrist"))
+
+        hand.disabled_motor_ids = {1}
+        hand.motor_limits_dict = {1: [None, None]}
+        hand.joint_to_motor_ratios_dict = {1: 0.0}
+        self.assertTrue(hand._joint_calibration_complete("wrist"))
 
 if __name__ == "__main__":
     unittest.main()

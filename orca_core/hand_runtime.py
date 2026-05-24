@@ -75,6 +75,7 @@ class OrcaHand:
             
         self.baudrate: int = config.get('baudrate', 3000000)
         self.port: str = config.get('port', '/dev/ttyUSB0')
+        self.allow_env_port_override: bool = True
         self.max_current: int = config.get('max_current', 300)
         self.control_mode: str = config.get('control_mode', 'current_position')
         self.type: str = config.get('type', None)
@@ -194,9 +195,11 @@ class OrcaHand:
 
     def _resolve_port_path(self) -> str:
         side_env_port = ""
-        if self.type:
-            side_env_port = os.getenv(f"ORCA_{self.type.upper()}_PORT", "").strip()
-        env_port = os.getenv("ORCA_SERIAL_PORT", "").strip()
+        env_port = ""
+        if getattr(self, "allow_env_port_override", True):
+            if self.type:
+                side_env_port = os.getenv(f"ORCA_{self.type.upper()}_PORT", "").strip()
+            env_port = os.getenv("ORCA_SERIAL_PORT", "").strip()
         configured_port = side_env_port or env_port or self.port
 
         for candidate in self._port_resolution_candidates(configured_port):
@@ -338,12 +341,14 @@ class OrcaHand:
         """Disable torque for the motors.
         
         Args:
-            motor_ids (list): List of motor IDs to disable the torque. If None, all motors will be disabled.
+            motor_ids (list): List of motor IDs to disable the torque. If None, all active motors will be disabled.
         """
         if motor_ids is None:
-            motor_ids = self.motor_ids
-        elif not all(motor_id in self.motor_ids for motor_id in motor_ids):
-            raise ValueError("Invalid motor IDs.")
+            motor_ids = self.active_motor_ids
+        else:
+            motor_ids = self._enabled_motor_ids(motor_ids)
+        if not motor_ids:
+            return
         with self._motor_lock:
             self._motor_client.set_torque_enabled(motor_ids, False)
     
@@ -620,6 +625,22 @@ class OrcaHand:
         else:
             self._start_task(self._calibrate, force_wrist=force_wrist)
 
+    def _joint_calibration_complete(self, joint: str) -> bool:
+        motor_id = self.joint_to_motor_map.get(joint)
+        if motor_id is None or motor_id in self.disabled_motor_ids:
+            return True
+
+        limits = self.motor_limits_dict.get(motor_id, [None, None])
+        if not isinstance(limits, (list, tuple)) or len(limits) < 2:
+            return False
+        ratio = self.joint_to_motor_ratios_dict.get(motor_id, 0.0)
+        return (
+            limits[0] is not None
+            and limits[1] is not None
+            and ratio is not None
+            and ratio != 0.0
+        )
+
     def _calibration_complete(
         self,
         motor_limits: Dict[int, List[float]],
@@ -640,8 +661,9 @@ class OrcaHand:
     def _calibrate(self, force_wrist: bool = False):
         wrist_in_sequence = any('wrist' in step["joints"] for step in self.calib_sequence)
         calibration_sequence = list(self.calib_sequence)
+        wrist_calibration_complete = self._joint_calibration_complete('wrist')
 
-        if self.wrist_calibrated and not force_wrist:
+        if self.wrist_calibrated and wrist_calibration_complete and not force_wrist:
             if wrist_in_sequence:
                 print(
                     "WARNING: Wrist is already calibrated. Skipping wrist calibration. "
@@ -650,13 +672,19 @@ class OrcaHand:
             calibration_sequence = [
                 step for step in calibration_sequence if 'wrist' not in step["joints"]
             ]
-        elif not wrist_in_sequence:
-            calibration_sequence.append(
-                {"step": len(calibration_sequence) + 1, "joints": {"wrist": "flex"}}
-            )
-            calibration_sequence.append(
-                {"step": len(calibration_sequence) + 1, "joints": {"wrist": "extend"}}
-            )
+        else:
+            if self.wrist_calibrated and not wrist_calibration_complete and not force_wrist:
+                print(
+                    "WARNING: Wrist is marked calibrated but calibration data is incomplete. "
+                    "Recalibrating wrist."
+                )
+            if not wrist_in_sequence:
+                calibration_sequence.append(
+                    {"step": len(calibration_sequence) + 1, "joints": {"wrist": "flex"}}
+                )
+                calibration_sequence.append(
+                    {"step": len(calibration_sequence) + 1, "joints": {"wrist": "extend"}}
+                )
 
         filtered_sequence = []
         for step in calibration_sequence:

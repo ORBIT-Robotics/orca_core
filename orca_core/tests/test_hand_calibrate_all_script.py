@@ -75,6 +75,33 @@ class TestHandCalibrateAllScript(unittest.TestCase):
         run_child.assert_called_once()
         self.assertEqual(run_child.call_args.args[0], specs[1])
 
+    def test_parallel_mode_preflights_all_then_runs_parallel(self):
+        specs = [
+            _spec("helios_lower_left", "/dev/test-left"),
+            _spec("helios_lower_right", "/dev/test-right"),
+        ]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with (
+                mock.patch.object(hand_calibrate_all, "_validate_roles", return_value=specs),
+                mock.patch.object(hand_calibrate_all, "print_role_summary"),
+                mock.patch.object(hand_calibrate_all, "preflight_motor_roles", return_value=True) as preflight_all,
+                mock.patch.object(hand_calibrate_all, "preflight_motor_role") as preflight_one,
+                mock.patch.object(
+                    hand_calibrate_all,
+                    "_run_parallel",
+                    return_value=({spec.role: 0 for spec in specs}, False),
+                ) as run_parallel,
+                mock.patch.object(hand_calibrate_all, "_run_child_process") as run_child,
+            ):
+                result = hand_calibrate_all.main(["--log-dir", tmpdir, "--parallel"])
+
+        self.assertEqual(result, 0)
+        preflight_all.assert_called_once_with(specs)
+        preflight_one.assert_not_called()
+        run_parallel.assert_called_once()
+        run_child.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

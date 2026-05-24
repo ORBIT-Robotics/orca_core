@@ -63,14 +63,19 @@ Run hand tools using explicit module paths:
 ```sh
 python -m orca_core.scripts.hand_tension --role helios_upper_right
 python -m orca_core.scripts.hand_calibrate --role helios_upper_right
+python -m orca_core.scripts.hand_calibrate_all --parallel --dry-run
 python -m orca_core.scripts.hand_neutral --role helios_upper_right
 python -m orca_core.scripts.hand_tension_all --dry-run
 python -m orca_core.scripts.hand_neutral_all --dry-run
 python -m orca_core.scripts.hand_reboot_all --dry-run
 ```
 
+For simultaneous HELIOS hand calibration, run `hand_calibrate_all --parallel`.
 For simultaneous HELIOS hand tensioning, run `hand_tension_all`; omit `--role`
 for all default hands or repeat it for the specific hand roles to lock together.
+Role-based hand tools treat the resolved role port from `configs/<robot>.yaml` as
+authoritative, so legacy `ORCA_RIGHT_PORT`, `ORCA_LEFT_PORT`, or
+`ORCA_SERIAL_PORT` values cannot redirect a selected role to another bus.
 
 Minimal runtime example:
 

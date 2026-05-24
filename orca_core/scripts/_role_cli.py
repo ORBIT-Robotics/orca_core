@@ -56,6 +56,9 @@ def create_hand(spec: OrcaHandRoleSpec) -> OrcaHand:
     hand = OrcaHand(str(spec.model_path))
     hand.port = spec.port
     hand.baudrate = spec.baudrate
+    # Role resolution already selected an exact hardware port from configs/<robot>.yaml.
+    # Legacy side-wide env vars are only for non-role launch paths.
+    hand.allow_env_port_override = False
     return hand
 
 def connect_hand_with_bus_preflight(

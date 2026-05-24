@@ -36,6 +36,20 @@ class TestOrcaPortResolution(unittest.TestCase):
         ):
             self.assertEqual(hand._resolve_port_path(), "/dev/serial/by-id/right-hand")
 
+    def test_role_resolved_port_can_ignore_legacy_env_ports(self):
+        hand = self._hand("/dev/serial/by-id/role-port", side="right")
+        hand.allow_env_port_override = False
+
+        with patch.dict(
+            "orca_core.hand_runtime.os.environ",
+            {
+                "ORCA_RIGHT_PORT": "/dev/serial/by-id/legacy-right",
+                "ORCA_SERIAL_PORT": "/dev/serial/by-id/global-port",
+            },
+            clear=False,
+        ), patch("orca_core.hand_runtime.os.path.exists", return_value=False):
+            self.assertEqual(hand._resolve_port_path(), "/dev/serial/by-id/role-port")
+
     def test_wildcard_port_can_still_resolve_matching_device(self):
         hand = self._hand("/dev/serial/by-id/usb-FTDI*")
 
