@@ -10,6 +10,8 @@
 
 `orca_core` is the local ORBIT control package set for ORCA hands + HELIOS head.
 
+> State note: this checked-out `orca_core` state is the one used to control the current ORCA hands in this repo. Keep this state for the current hand hardware unless you are intentionally migrating the hand control stack.
+
 It now uses folder-aligned namespace packages with explicit imports:
 - ORCA hand runtime/core modules: `orca_core.*`
 - HELIOS head runtime/core modules: `helios_core.*`
