@@ -128,6 +128,8 @@ dev_scripts/
 # Device-local calibration artifacts. Each machine should generate these by
 # running the appropriate calibration flow for its connected hardware.
 models/*/calibration.yaml
+!models/orca_hand_ikarus_right/calibration.yaml
+!models/orca_hand_ikarus_left/calibration.yaml
 
 
 # macOS
