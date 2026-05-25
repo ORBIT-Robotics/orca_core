@@ -69,17 +69,17 @@ joint_roms:
   - -18
   - 55
   thumb_pip:
-  - -25
-  - 135
+  - -60
+  - 100
   thumb_dip:
-  - -15
-  - 155
+  - -63
+  - 107
   index_abd:
   - -30
   - 25
   index_mcp:
-  - -25
-  - 155
+  - -80
+  - 100
   index_pip:
   - -15
   - 107
@@ -87,8 +87,8 @@ joint_roms:
   - -27
   - 27
   middle_mcp:
-  - -25
-  - 155
+  - -80
+  - 100
   middle_pip:
   - -15
   - 107
@@ -96,8 +96,8 @@ joint_roms:
   - -27
   - 27
   ring_mcp:
-  - -25
-  - 155
+  - -80
+  - 100
   ring_pip:
   - -15
   - 107
@@ -105,14 +105,15 @@ joint_roms:
   - -30
   - 30
   pinky_mcp:
-  - -25
-  - 155
+  - -80
+  - 100
   pinky_pip:
   - -15
   - 107
   wrist:
   - -65
   - 35
+  
 neutral_position:
   thumb_mcp: 0
   thumb_abd: 50

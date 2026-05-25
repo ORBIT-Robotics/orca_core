@@ -7,6 +7,7 @@ max_current: 300
 type: right
 motor_type: feetech
 control_mode: current_based_position
+disabled_motor_ids: [1]
 motor_ids:
 - 1
 - 2
