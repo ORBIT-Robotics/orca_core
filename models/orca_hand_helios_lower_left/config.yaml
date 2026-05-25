@@ -78,7 +78,7 @@ joint_roms:
   - -30
   - 25
   index_mcp:
-  - -80
+  - -70
   - 100
   index_pip:
   - -15
@@ -87,7 +87,7 @@ joint_roms:
   - -27
   - 27
   middle_mcp:
-  - -80
+  - -70
   - 100
   middle_pip:
   - -15
@@ -96,7 +96,7 @@ joint_roms:
   - -27
   - 27
   ring_mcp:
-  - -80
+  - -70
   - 100
   ring_pip:
   - -15
@@ -105,7 +105,7 @@ joint_roms:
   - -30
   - 30
   pinky_mcp:
-  - -80
+  - -70
   - 100
   pinky_pip:
   - -15
